@@ -94,6 +94,21 @@ export const MentorApp: React.FC = () => {
     }
   };
 
+  const handleJoinClassroom = async () => {
+    const id = window.prompt("Classroom ID (UUID):");
+    if (!id || !id.trim()) return;
+    const code = window.prompt("Invite code (or leave empty):");
+    setError(null);
+    try {
+      const { enrollInClassroom } = await import("./lib/api");
+      await enrollInClassroom(id.trim(), code?.trim() || null);
+      const cls = await listClassrooms();
+      setClassrooms(cls || []);
+    } catch (e: any) {
+      setError(e.message || "Failed to join classroom.");
+    }
+  };
+
   const openClassroom = async (cls: any) => {
     setCurrentClassroom(cls);
     setError(null);
@@ -210,16 +225,24 @@ export const MentorApp: React.FC = () => {
         <div className="flex flex-1 overflow-hidden">
           {/* Left: classrooms */}
           <aside className="w-64 border-r border-slate-800 bg-slate-900/80 flex flex-col">
-            <div className="px-3 py-2 border-b border-slate-800 text-[10px] uppercase tracking-wide text-slate-500 flex items-center justify-between">
+            <div className="px-3 py-2 border-b border-slate-800 text-[10px] uppercase tracking-wide text-slate-500 flex items-center justify-between gap-2">
               <span>Classrooms</span>
-              {canCreate && (
+              <div className="flex items-center gap-1">
                 <button
-                  onClick={handleCreateClassroom}
-                  className="text-sky-400 text-xs"
+                  onClick={handleJoinClassroom}
+                  className="text-xs border border-slate-800 rounded px-1.5 py-0.5 bg-slate-950 hover:bg-slate-900"
                 >
-                  +
+                  Join
                 </button>
-              )}
+                {canCreate && (
+                  <button
+                    onClick={handleCreateClassroom}
+                    className="text-sky-400 text-xs px-1.5 py-0.5 border border-slate-800 rounded"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
             </div>
             <ul className="flex-1 overflow-auto text-sm">
               {classrooms.map((c) => (
@@ -233,6 +256,9 @@ export const MentorApp: React.FC = () => {
                   onClick={() => openClassroom(c)}
                 >
                   <div className="font-medium">{c.name}</div>
+                  <div className="text-[10px] text-slate-500 font-mono break-all">
+                    {c.id}
+                  </div>
                   {c.description && (
                     <div className="text-xs text-slate-500">
                       {c.description}

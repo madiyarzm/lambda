@@ -50,9 +50,12 @@ def create_app() -> FastAPI:
     )
 
     # CORS: allow frontend origin; restrict in production to known origins.
+    # For development we allow all origins so that the Vite dev server
+    # on port 5173 can talk to the API without CORS issues.
+    # In production, this should be restricted to known frontend origins.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
