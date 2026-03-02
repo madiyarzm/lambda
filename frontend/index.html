@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lambda Classroom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-root">
+      <div class="shell">
+        <header class="shell__header">
+          <div class="brand">
+            <span class="brand__dot"></span>
+            <span class="brand__name">Lambda</span>
+          </div>
+          <div class="header-right">
+            <span id="health-status" class="status status--muted">Backend: checking…</span>
+            <span id="user-info" class="user-badge"></span>
+            <button class="button button--ghost" id="logout-btn">Logout</button>
+          </div>
+        </header>
+
+        <div id="error-message" class="error-banner" style="display: none;"></div>
+
+        <main class="shell__main">
+          <!-- Login view -->
+          <section id="view-login" class="view" style="display: none;">
+            <div class="panel">
+              <h1 class="panel__title">Dev Login</h1>
+              <p class="panel__subtitle">Enter credentials for local testing (no Google OAuth).</p>
+              <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="text" id="login-email" placeholder="teacher@example.com" />
+              </div>
+              <div class="form-group">
+                <label for="login-name">Name</label>
+                <input type="text" id="login-name" placeholder="Teacher" />
+              </div>
+              <div class="form-group">
+                <label for="login-role">Role</label>
+                <select id="login-role">
+                  <option value="teacher">Teacher</option>
+                  <option value="student">Student</option>
+                </select>
+              </div>
+              <button class="button button--primary" id="login-btn">Login</button>
+            </div>
+          </section>
+
+          <!-- Dashboard view -->
+          <section id="view-dashboard" class="view" style="display: none;">
+            <div class="panel">
+              <h1 class="panel__title">My Classrooms</h1>
+              <p class="panel__subtitle">Create a classroom or join one with an invite code.</p>
+              <div class="panel__actions">
+                <button class="button button--primary" id="create-classroom">Create Classroom</button>
+                <button class="button button--ghost" id="join-classroom">Join Classroom</button>
+              </div>
+              <ul id="classroom-list" class="list"></ul>
+            </div>
+          </section>
+
+          <!-- Classroom view -->
+          <section id="view-classroom" class="view" style="display: none;">
+            <div class="panel">
+              <div class="panel__row">
+                <button class="button button--ghost" id="back-to-dashboard">← Back</button>
+                <h1 class="panel__title" id="classroom-title">Classroom</h1>
+              </div>
+              <div class="panel__actions">
+                <button class="button button--primary" id="create-assignment">Create Assignment</button>
+              </div>
+              <ul id="assignment-list" class="list"></ul>
+            </div>
+          </section>
+
+          <!-- Assignment view -->
+          <section id="view-assignment" class="view" style="display: none;">
+            <div class="panel">
+              <div class="panel__row">
+                <button class="button button--ghost" id="back-to-classroom">← Back</button>
+                <h1 class="panel__title" id="assignment-title">Assignment</h1>
+              </div>
+              <p class="panel__subtitle" id="assignment-description"></p>
+              <div class="editor-section">
+                <label for="code-editor">Code</label>
+                <textarea id="code-editor" class="code-editor" rows="12" spellcheck="false"></textarea>
+                <div class="editor-actions">
+                  <button class="button button--primary" id="run-btn">Run</button>
+                  <button class="button button--primary" id="submit-btn">Submit</button>
+                </div>
+                <div class="output-section">
+                  <label>Output</label>
+                  <pre id="run-output" class="output-pre">(Run or submit to see output)</pre>
+                </div>
+              </div>
+              <div class="submissions-section">
+                <h3>Submissions</h3>
+                <ul id="submissions-list" class="list"></ul>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <footer class="shell__footer">
+          <span>Lambda · FastAPI · PostgreSQL</span>
+        </footer>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,47 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Python tooling
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Logs
+*.log
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Databases
+*.sqlite3
+*.db
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Node / JS tooling (in case we add it later)
+node_modules/
+dist/
+build/
+
+# Cursor / local assistants metadata
+.cursor/
+
