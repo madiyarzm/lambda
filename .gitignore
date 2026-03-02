@@ -42,6 +42,12 @@ node_modules/
 dist/
 build/
 
+# Vite frontend artifacts
+frontend-vite/node_modules/
+frontend-vite/dist/
+frontend-vite/.vite/
+frontend-vite/.env.local
+
 # Cursor / local assistants metadata
 .cursor/
 
