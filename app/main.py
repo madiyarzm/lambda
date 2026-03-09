@@ -14,8 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
+from app.api import ws_collab
 from app.config import get_settings
 from app.db.init_db import init_db
+from app.db.session import SessionLocal
+from app.services.submission_service import delete_expired_submissions
 
 # Frontend directory relative to project root (where main.py's parent's parent is)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
@@ -33,6 +36,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.app_env == "development":
         # Development-only safety: ensure schema exists without manual migration.
         init_db()
+    # Remove submissions older than retention window so DB does not grow unbounded.
+    db = SessionLocal()
+    try:
+        deleted = delete_expired_submissions(db, retention_days=settings.submission_retention_days)
+        if deleted:
+            pass  # Optional: log deleted count
+    finally:
+        db.close()
     yield
     # Teardown: close pools etc. if needed later
 
@@ -62,6 +73,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api")
+    # WebSocket collaboration endpoint (not versioned; used by Yjs clients).
+    app.include_router(ws_collab.router)
 
     # Serve frontend static files in development; API routes take precedence.
     if FRONTEND_DIR.exists():

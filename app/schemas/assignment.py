@@ -68,6 +68,8 @@ class SubmissionCreate(SubmissionBase):
 class SubmissionRead(SubmissionBase):
     """
     Submission representation returned to clients.
+
+    Includes submitter info and human-readable status for the UI.
     """
 
     id: UUID
@@ -76,6 +78,11 @@ class SubmissionRead(SubmissionBase):
     status: str
     result_json: dict | None = None
     submitted_at: datetime
+    # Populated by API for display; who submitted and short status/error text.
+    submitter_name: str = ""
+    submitter_email: str | None = None
+    status_display: str = ""
+    error_summary: str | None = None
 
     class Config:
         """

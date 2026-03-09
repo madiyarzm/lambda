@@ -122,6 +122,10 @@ export async function listSubmissions(assignmentId: string): Promise<any[]> {
   return apiClient.get(`/api/v1/submissions/?assignment_id=${assignmentId}`);
 }
 
+export async function getSubmission(submissionId: string): Promise<any> {
+  return apiClient.get(`/api/v1/submissions/${submissionId}`);
+}
+
 export async function createSubmission(
   assignmentId: string,
   code: string,

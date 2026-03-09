@@ -51,3 +51,6 @@ frontend-vite/.env.local
 # Cursor / local assistants metadata
 .cursor/
 
+# Accidental paste from terminal (Docker output etc.)
+/sha256:*
+

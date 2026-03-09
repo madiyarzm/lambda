@@ -1,22 +1,92 @@
 """
-Business logic for submissions and sandbox stub.
+Business logic for submissions and sandbox integration.
 
-This module creates Submission records and, for now, simulates sandbox
-execution without running any user code. Real isolation will be added
-in the dedicated sandbox phase.
+Creates Submission records, enforces retention (submissions older than
+submission_retention_days are hidden and removed by startup cleanup).
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import List
 from uuid import UUID
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.models.assignment import Assignment
+from app.services.sandbox_service import run_code
 from app.models.classroom import Classroom
 from app.models.submission import Submission
 from app.models.user import User
 from app.services.assignment_service import get_assignment_or_404
 from app.services.classroom_service import ensure_user_can_access_classroom
+
+
+def get_submission_status_display(submission: Submission) -> tuple[str, str | None]:
+    """
+    Human-readable status and optional error summary for UI.
+
+    Returns:
+        (status_display, error_summary). status_display is short label;
+        error_summary is None for success, otherwise a brief error message.
+    """
+    status = (submission.status or "").lower()
+    result = submission.result_json or {}
+    stderr = (result.get("stderr") or "").strip() if isinstance(result, dict) else ""
+    stdout = (result.get("stdout") or "").strip() if isinstance(result, dict) else ""
+
+    # Infrastructure errors (e.g., Docker daemon not reachable) should not leak low-level details.
+    err_lower_full = stderr.lower()
+    if "docker" in err_lower_full and "sock" in err_lower_full:
+        return (
+            "Error",
+            "Execution environment is temporarily unavailable. Please try again later or contact your mentor.",
+        )
+
+    if status == "success":
+        return ("Accepted, no errors", None)
+    if status == "timeout":
+        return ("Timeout", "Execution exceeded time limit.")
+    if status == "error":
+        # Try to classify: syntax, runtime, or other from stderr
+        err_lower = stderr.lower()
+        if "syntaxerror" in err_lower or "syntax error" in err_lower:
+            first_line = stderr.split("\n")[0].strip() if stderr else "Syntax error."
+            return ("Syntax error", first_line[:200])
+        if any(x in err_lower for x in ("nameerror", "typeerror", "valueerror", "indexerror", "keyerror", "runtimeerror", "zerodivisionerror")):
+            first_line = stderr.split("\n")[0].strip() if stderr else "Runtime error."
+            return ("Runtime error", first_line[:200])
+        if stderr:
+            return ("Error", stderr[:200])
+        return ("Error", "Execution failed.")
+    return (status or "Unknown", None)
+
+
+def _retention_cutoff() -> datetime:
+    """Return the cutoff datetime: submissions before this are considered expired."""
+    days = get_settings().submission_retention_days
+    return (datetime.now(timezone.utc) - timedelta(days=days))
+
+
+def delete_expired_submissions(db: Session, retention_days: int | None = None) -> int:
+    """
+    Remove submissions older than the retention period.
+
+    Called on app startup so old data does not accumulate. Safe to run
+    periodically; returns the number of rows deleted.
+
+    Args:
+        db: Database session.
+        retention_days: Override config (uses settings if None).
+
+    Returns:
+        Number of submissions deleted.
+    """
+    days = retention_days if retention_days is not None else get_settings().submission_retention_days
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    result = db.execute(delete(Submission).where(Submission.submitted_at < cutoff))
+    db.commit()
+    return result.rowcount or 0
 
 
 def _get_classroom_from_assignment(db: Session, assignment: Assignment) -> Classroom:
@@ -45,36 +115,29 @@ def create_submission(
     code: str,
 ) -> Submission:
     """
-    Create a new submission for an assignment and simulate sandbox execution.
+    Create a new submission for an assignment and run code in the sandbox.
 
-    Args:
-        db: Database session.
-        assignment_id: Target assignment identifier.
-        user: Current user making the submission.
-        code: Python source code submitted by the student.
-
-    Returns:
-        Persisted Submission instance with a stubbed result.
-
-    Raises:
-        PermissionError: If the user cannot access the assignment's classroom.
-        ValueError: If the assignment or classroom does not exist.
+    Runs the code in the sandbox, then stores the submission with real
+    status and result (stdout, stderr) for display.
     """
 
     assignment = get_assignment_or_404(db, assignment_id=assignment_id)
     classroom = _get_classroom_from_assignment(db, assignment)
     ensure_user_can_access_classroom(classroom, user, db)
 
+    sandbox_result = run_code(code)
+    result_json = {
+        "stdout": sandbox_result.stdout or "",
+        "stderr": sandbox_result.stderr or "",
+        **(sandbox_result.result_json or {}),
+    }
+
     submission = Submission(
         assignment_id=assignment.id,
         user_id=user.id,
         code=code,
-        status="success",
-        result_json={
-            "summary": "Sandbox execution is not yet implemented. This is a stub result.",
-            "stdout": "",
-            "stderr": "",
-        },
+        status=sandbox_result.status,
+        result_json=result_json,
     )
     db.add(submission)
     db.commit()
@@ -98,8 +161,12 @@ def list_submissions_for_assignment(
     # Check that user can access the classroom at all.
     ensure_user_can_access_classroom(classroom, user, db)
 
-    query = db.query(Submission).filter(Submission.assignment_id == assignment.id)
-
+    cutoff = _retention_cutoff()
+    query = (
+        db.query(Submission)
+        .filter(Submission.assignment_id == assignment.id)
+        .filter(Submission.submitted_at >= cutoff)
+    )
     if user.id != classroom.teacher_id:
         query = query.filter(Submission.user_id == user.id)
 
@@ -116,6 +183,8 @@ def get_submission_or_404(db: Session, submission_id: UUID, user: User) -> Submi
 
     submission = db.get(Submission, submission_id)
     if submission is None:
+        raise ValueError("Submission not found")
+    if submission.submitted_at < _retention_cutoff():
         raise ValueError("Submission not found")
 
     assignment = get_assignment_or_404(db, assignment_id=submission.assignment_id)

@@ -48,6 +48,32 @@ class Settings(BaseSettings):
         description="Frontend origin for CORS and redirects.",
     )
 
+    # Sandbox: real code execution (subprocess by default; Docker optional)
+    sandbox_timeout_seconds: int = Field(
+        default=10,
+        description="Max execution time per run. Prevents runaway code.",
+    )
+    sandbox_max_output_bytes: int = Field(
+        default=256 * 1024,
+        description="Max stdout+stderr bytes to capture before truncation.",
+    )
+    sandbox_use_docker: bool = Field(
+        default=False,
+        description="Use Docker executor when True and Docker available; else subprocess.",
+    )
+    sandbox_docker_image: str = Field(
+        default="lambda-sandbox:latest",
+        description="Docker image for sandbox (e.g. built from docker/sandbox.Dockerfile).",
+    )
+
+    # Submissions: keep only for this many days; older ones are hidden and deleted on cleanup.
+    submission_retention_days: int = Field(
+        default=1,
+        ge=1,
+        le=365,
+        description="Submissions older than this are excluded from lists and removed by cleanup.",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
