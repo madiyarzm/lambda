@@ -442,6 +442,7 @@ export const MentorApp: React.FC = () => {
                 setCode={handleCodeChange}
                 output={output}
                 roomId={roomIdForEditor}
+                userName={user?.name || "Anonymous"}
                 files={files}
                 activeFileId={activeFileId}
                 onSelectFile={handleSelectFile}
@@ -612,6 +613,7 @@ interface AssignmentViewProps {
   setCode: (c: string) => void;
   output: string;
   roomId?: string;
+  userName?: string;
   files: EditorFile[];
   activeFileId: string | null;
   onSelectFile: (id: string) => void;
@@ -633,6 +635,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   setCode,
   output,
   roomId,
+  userName,
   files,
   activeFileId,
   onSelectFile,
@@ -699,6 +702,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               value={code}
               onChange={setCode}
               roomId={roomId}
+              userName={userName}
               className="bg-slate-950"
             />
           </div>

@@ -1,6 +1,7 @@
 /**
- * IDE-style code editor: Python syntax highlighting, bracket matching,
- * auto-closing brackets, and real-time CRDT collaboration via Yjs.
+ * IDE-style code editor with real-time CRDT collaboration.
+ *
+ * Renders colored cursors and selections of other participants via Yjs Awareness.
  */
 
 import React, { useMemo, useRef, useEffect } from "react";
@@ -14,58 +15,23 @@ import {
 } from "@codemirror/autocomplete";
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
-import { useCollab } from "../hooks/useCollab";
+import { useCollab, type PeerInfo } from "../hooks/useCollab";
 
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
   roomId?: string;
+  userName?: string;
 }
 
 const PYTHON_SNIPPETS = [
-  {
-    label: "print",
-    type: "function",
-    apply: "print()",
-    detail: "Built-in function",
-    info: "Prints the given values to standard output.",
-  },
-  {
-    label: "range",
-    type: "function",
-    apply: "range()",
-    detail: "Built-in function",
-    info: "Creates an arithmetic progression of integers (often used in for-loops).",
-  },
-  {
-    label: "len",
-    type: "function",
-    apply: "len()",
-    detail: "Built-in function",
-    info: "Returns the length (number of items) of a sequence or collection.",
-  },
-  {
-    label: "def",
-    type: "keyword",
-    apply: "def ",
-    detail: "Keyword",
-    info: "Defines a new function: def name(args):",
-  },
-  {
-    label: "for",
-    type: "keyword",
-    apply: "for ",
-    detail: "Keyword",
-    info: "Loop keyword: for item in iterable:",
-  },
-  {
-    label: "if",
-    type: "keyword",
-    apply: "if ",
-    detail: "Keyword",
-    info: "Conditional branch: if condition:",
-  },
+  { label: "print", type: "function", apply: "print()", detail: "Built-in function", info: "Prints the given values to standard output." },
+  { label: "range", type: "function", apply: "range()", detail: "Built-in function", info: "Creates an arithmetic progression of integers." },
+  { label: "len", type: "function", apply: "len()", detail: "Built-in function", info: "Returns the length of a sequence or collection." },
+  { label: "def", type: "keyword", apply: "def ", detail: "Keyword", info: "Defines a new function: def name(args):" },
+  { label: "for", type: "keyword", apply: "for ", detail: "Keyword", info: "Loop keyword: for item in iterable:" },
+  { label: "if", type: "keyword", apply: "if ", detail: "Keyword", info: "Conditional branch: if condition:" },
 ];
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -73,6 +39,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onChange,
   className = "",
   roomId,
+  userName,
 }) => {
   const ydocRef = useRef<Y.Doc | null>(null);
   if (!ydocRef.current) {
@@ -81,13 +48,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const ydoc = ydocRef.current;
   const ytext = useMemo(() => ydoc.getText("code"), [ydoc]);
 
-  // Collaboration + initial value seeding handled inside useCollab.
-  // value is passed as initialValue so only the first client in the room
-  // seeds the document (avoids duplication).
-  useCollab(roomId, ydoc, value);
+  const { awareness, peers } = useCollab(roomId, ydoc, value, userName);
 
-  // Keep parent React state in sync with CRDT document content
-  // so that Run/Submit always use the latest text.
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -113,29 +75,45 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         override: [completeFromList(PYTHON_SNIPPETS)],
         activateOnTyping: true,
       }),
-      yCollab(ytext, undefined as any),
+      yCollab(ytext, awareness ?? undefined),
     ],
-    [ytext],
+    [ytext, awareness],
   );
 
   return (
-    <CodeMirror
-      height="100%"
-      className={`h-full text-[13px] md:text-sm font-mono ${className}`}
-      theme="dark"
-      extensions={extensions}
-      basicSetup={{
-        lineNumbers: true,
-        highlightActiveLineGutter: true,
-        highlightActiveLine: true,
-        foldGutter: false,
-        bracketMatching: true,
-        closeBrackets: true,
-        autocompletion: true,
-        indentOnInput: true,
-        tabSize: 4,
-      }}
-      style={{ flex: 1 }}
-    />
+    <div className="h-full flex flex-col">
+      {/* Presence bar: show colored dots for each remote peer */}
+      {peers.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1 border-b border-slate-800 bg-slate-900/80 text-[10px] text-slate-400">
+          {peers.map((p) => (
+            <span key={p.clientId} className="flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: p.color }}
+              />
+              {p.name}
+            </span>
+          ))}
+        </div>
+      )}
+      <CodeMirror
+        height="100%"
+        className={`flex-1 min-h-0 text-[13px] md:text-sm font-mono ${className}`}
+        theme="dark"
+        extensions={extensions}
+        basicSetup={{
+          lineNumbers: true,
+          highlightActiveLineGutter: true,
+          highlightActiveLine: true,
+          foldGutter: false,
+          bracketMatching: true,
+          closeBrackets: true,
+          autocompletion: true,
+          indentOnInput: true,
+          tabSize: 4,
+        }}
+        style={{ flex: 1 }}
+      />
+    </div>
   );
 };

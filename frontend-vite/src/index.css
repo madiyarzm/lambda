@@ -9,3 +9,34 @@
 body {
   @apply bg-slate-950 text-slate-300;
 }
+
+/* Yjs collaborative cursor styles (yCollab renders these class names). */
+.yRemoteSelection {
+  background-color: var(--user-color, rgba(56, 189, 248, 0.25));
+  border-left: 2px solid var(--user-color, #38bdf8);
+  margin-left: -1px;
+}
+
+.yRemoteSelectionHead {
+  position: absolute;
+  border-left: 2px solid var(--user-color, #38bdf8);
+  border-top: 2px solid var(--user-color, #38bdf8);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.yRemoteSelectionHead::after {
+  content: attr(data-yjs-user);
+  position: absolute;
+  top: -1.2em;
+  left: -2px;
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  padding: 1px 4px;
+  border-radius: 3px 3px 3px 0;
+  background-color: var(--user-color, #38bdf8);
+  color: #020617;
+  white-space: nowrap;
+  line-height: 1.2;
+  pointer-events: none;
+}
