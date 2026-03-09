@@ -1,6 +1,6 @@
 /**
- * IDE-style code editor: Python syntax highlighting, bracket matching, auto-closing brackets.
- * Uses CodeMirror 6 via @uiw/react-codemirror.
+ * IDE-style code editor: Python syntax highlighting, bracket matching,
+ * auto-closing brackets, and real-time CRDT collaboration via Yjs.
  */
 
 import React, { useMemo, useRef, useEffect } from "react";
@@ -23,7 +23,6 @@ interface CodeEditorProps {
   roomId?: string;
 }
 
-// Small set of common Python completions for teaching.
 const PYTHON_SNIPPETS = [
   {
     label: "print",
@@ -82,16 +81,28 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const ydoc = ydocRef.current;
   const ytext = useMemo(() => ydoc.getText("code"), [ydoc]);
 
-  // Initialize CRDT document from initial value once.
-  useEffect(() => {
-    if (ytext.length === 0 && value) {
-      ytext.insert(0, value);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Collaboration + initial value seeding handled inside useCollab.
+  // value is passed as initialValue so only the first client in the room
+  // seeds the document (avoids duplication).
+  useCollab(roomId, ydoc, value);
 
-  // Wire Yjs to WebSocket collaboration if a room is provided.
-  useCollab(roomId, ydoc);
+  // Keep parent React state in sync with CRDT document content
+  // so that Run/Submit always use the latest text.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    const updateHandler = () => {
+      onChangeRef.current(ytext.toString());
+    };
+    updateHandler();
+    ytext.observe(updateHandler);
+    return () => {
+      ytext.unobserve(updateHandler);
+    };
+  }, [ytext]);
 
   const extensions = useMemo(
     () => [
@@ -102,23 +113,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         override: [completeFromList(PYTHON_SNIPPETS)],
         activateOnTyping: true,
       }),
-      yCollab(ytext),
+      yCollab(ytext, undefined as any),
     ],
-    [ytext]
+    [ytext],
   );
 
   return (
     <CodeMirror
-      value={value}
       height="100%"
       className={`h-full text-[13px] md:text-sm font-mono ${className}`}
       theme="dark"
       extensions={extensions}
-      onChange={() => {
-        // Source of truth is Yjs; keep parent React state in sync.
-        const text = ytext.toString();
-        onChange(text);
-      }}
       basicSetup={{
         lineNumbers: true,
         highlightActiveLineGutter: true,

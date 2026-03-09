@@ -6,11 +6,9 @@ clients connected to the same room. Conflict resolution is handled on the
 client by Yjs/CRDT logic.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.collab_manager import manager
-from app.dependencies import get_current_user
-from app.models.user import User
 
 router = APIRouter()
 
@@ -19,7 +17,6 @@ router = APIRouter()
 async def collab_websocket(
     websocket: WebSocket,
     room_id: str,
-    current_user: User = Depends(get_current_user),
 ) -> None:
     """
     Collaborative editing WebSocket.
@@ -27,7 +24,6 @@ async def collab_websocket(
     Args:
         websocket: WebSocket connection.
         room_id: Logical room identifier (e.g. classroom:assignment:file).
-        current_user: Authenticated user; used only for access control.
     """
 
     # accept connection and add to room

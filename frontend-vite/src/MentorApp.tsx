@@ -297,6 +297,11 @@ export const MentorApp: React.FC = () => {
     setTerminalEntries([]);
   };
 
+  const roomIdForEditor =
+    currentClassroom && currentAssignment && activeFileId
+      ? `${currentClassroom.id}:${currentAssignment.id}:${activeFileId}`
+      : undefined;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 flex flex-col">
       {/* Top bar */}
@@ -436,6 +441,7 @@ export const MentorApp: React.FC = () => {
                 code={code}
                 setCode={handleCodeChange}
                 output={output}
+                roomId={roomIdForEditor}
                 files={files}
                 activeFileId={activeFileId}
                 onSelectFile={handleSelectFile}
@@ -605,6 +611,7 @@ interface AssignmentViewProps {
   code: string;
   setCode: (c: string) => void;
   output: string;
+  roomId?: string;
   files: EditorFile[];
   activeFileId: string | null;
   onSelectFile: (id: string) => void;
@@ -625,6 +632,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   code,
   setCode,
   output,
+  roomId,
   files,
   activeFileId,
   onSelectFile,
@@ -690,11 +698,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               key={activeFileId || "single-file"}
               value={code}
               onChange={setCode}
-              roomId={
-                currentClassroom && currentAssignment && activeFileId
-                  ? `${currentClassroom.id}:${currentAssignment.id}:${activeFileId}`
-                  : undefined
-              }
+              roomId={roomId}
               className="bg-slate-950"
             />
           </div>
