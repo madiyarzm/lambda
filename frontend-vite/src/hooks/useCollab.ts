@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import * as Y from "yjs";
 import {
   Awareness,
@@ -10,21 +10,24 @@ export type PeerInfo = {
   clientId: number;
   name: string;
   color: string;
+  isSelf: boolean;
 };
 
-const COLORS = [
+const TEACHER_COLOR = "#22c55e"; // green-500
+
+const STUDENT_COLORS = [
   "#38bdf8", // sky-400
   "#a78bfa", // violet-400
-  "#34d399", // emerald-400
   "#fb923c", // orange-400
   "#f472b6", // pink-400
   "#facc15", // yellow-400
   "#22d3ee", // cyan-400
   "#c084fc", // purple-400
+  "#f87171", // red-400
 ];
 
-function pickColor(clientId: number): string {
-  return COLORS[clientId % COLORS.length];
+function pickStudentColor(clientId: number): string {
+  return STUDENT_COLORS[clientId % STUDENT_COLORS.length];
 }
 
 // Wire tags: 0 = Yjs doc update, 1 = awareness update.
@@ -42,8 +45,9 @@ export function useCollab(
   doc: Y.Doc,
   initialValue?: string,
   userName?: string,
+  userRole?: string,
 ): { awareness: Awareness | null; peers: PeerInfo[] } {
-  const awarenessRef = useRef<Awareness | null>(null);
+  const [awareness, setAwareness] = useState<Awareness | null>(null);
   const [peers, setPeers] = useState<PeerInfo[]>([]);
 
   useEffect(() => {
@@ -53,34 +57,60 @@ export function useCollab(
       if (ytext.length === 0 && initialValue) {
         ytext.insert(0, initialValue);
       }
-      awarenessRef.current = null;
+      setAwareness(null);
       setPeers([]);
       return;
     }
 
-    const awareness = new Awareness(doc);
-    awarenessRef.current = awareness;
+    const aw = new Awareness(doc);
+    setAwareness(aw);
 
-    const myColor = pickColor(doc.clientID);
-    awareness.setLocalStateField("user", {
+    const isTeacher = userRole === "teacher";
+    const myColor = isTeacher ? TEACHER_COLOR : pickStudentColor(doc.clientID);
+    aw.setLocalStateField("user", {
       name: userName || "Anonymous",
       color: myColor,
       colorLight: myColor + "33",
+      role: userRole || "student",
     });
 
-    const onAwarenessChange = () => {
-      const states = awareness.getStates();
+    const buildPeersList = (): PeerInfo[] => {
+      const states = aw.getStates();
       const list: PeerInfo[] = [];
+      // Add self first.
+      list.push({
+        clientId: doc.clientID,
+        name: (userName || "Anonymous") + " (you)",
+        color: myColor,
+        isSelf: true,
+      });
       states.forEach((state, clientId) => {
         if (clientId === doc.clientID) return;
         const u = state.user;
         if (u) {
-          list.push({ clientId, name: u.name || "Peer", color: u.color || "#888" });
+          list.push({
+            clientId,
+            name: u.name || "Peer",
+            color: u.color || "#888",
+            isSelf: false,
+          });
         }
       });
-      setPeers(list);
+      return list;
     };
-    awareness.on("change", onAwarenessChange);
+
+    // Set initial peers (self).
+    setPeers(buildPeersList());
+
+    let awarenessTimer: ReturnType<typeof setTimeout> | null = null;
+    const onAwarenessChange = () => {
+      if (awarenessTimer) return;
+      awarenessTimer = setTimeout(() => {
+        awarenessTimer = null;
+        setPeers(buildPeersList());
+      }, 300);
+    };
+    aw.on("change", onAwarenessChange);
 
     const isBackendSameOrigin = window.location.port === "8000";
     const httpBase = isBackendSameOrigin
@@ -100,9 +130,19 @@ export function useCollab(
       socket.send(msg);
     }
 
+    // Periodically re-broadcast our awareness state so peers don't time us
+    // out (default Yjs awareness timeout is 30s).
+    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
     socket.addEventListener("open", () => {
       taggedSend(TAG_DOC, Y.encodeStateAsUpdate(doc));
-      taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(awareness, [doc.clientID]));
+      taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, [doc.clientID]));
+
+      heartbeatInterval = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, [doc.clientID]));
+        }
+      }, 15_000);
 
       setTimeout(() => {
         if (!receivedPeerState && ytext.length === 0 && initialValue) {
@@ -121,7 +161,7 @@ export function useCollab(
     ) => {
       if (socket.readyState !== WebSocket.OPEN) return;
       const changed = added.concat(updated, removed);
-      taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(awareness, changed));
+      taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, changed));
     };
 
     const handleMessage = (event: MessageEvent) => {
@@ -133,21 +173,23 @@ export function useCollab(
         receivedPeerState = true;
         Y.applyUpdate(doc, payload, socket);
       } else if (tag === TAG_AWARENESS) {
-        applyAwarenessUpdate(awareness, payload, socket);
+        applyAwarenessUpdate(aw, payload, socket);
       }
     };
 
     socket.addEventListener("message", handleMessage);
     doc.on("update", handleDocUpdate);
-    awareness.on("update", handleAwarenessUpdate);
+    aw.on("update", handleAwarenessUpdate);
 
     return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (awarenessTimer) clearTimeout(awarenessTimer);
       doc.off("update", handleDocUpdate);
-      awareness.off("update", handleAwarenessUpdate);
-      awareness.off("change", onAwarenessChange);
+      aw.off("update", handleAwarenessUpdate);
+      aw.off("change", onAwarenessChange);
       socket.removeEventListener("message", handleMessage);
-      awareness.destroy();
-      awarenessRef.current = null;
+      aw.destroy();
+      setAwareness(null);
       setPeers([]);
       if (
         socket.readyState === WebSocket.OPEN ||
@@ -156,7 +198,7 @@ export function useCollab(
         socket.close();
       }
     };
-  }, [roomId, doc, initialValue, userName]);
+  }, [roomId, doc, initialValue, userName, userRole]);
 
-  return { awareness: awarenessRef.current, peers };
+  return { awareness, peers };
 }

@@ -10,33 +10,54 @@ body {
   @apply bg-slate-950 text-slate-300;
 }
 
-/* Yjs collaborative cursor styles (yCollab renders these class names). */
-.yRemoteSelection {
-  background-color: var(--user-color, rgba(56, 189, 248, 0.25));
-  border-left: 2px solid var(--user-color, #38bdf8);
+/* Yjs collaborative cursor styles for y-codemirror.next actual classes. */
+
+.cm-ySelection {
+  opacity: 0.35;
+}
+
+.cm-yLineSelection {
+  opacity: 0.2;
+}
+
+.cm-ySelectionCaret {
+  position: relative;
+  border-left-width: 2.5px !important;
+  border-right-width: 0 !important;
   margin-left: -1px;
-}
-
-.yRemoteSelectionHead {
-  position: absolute;
-  border-left: 2px solid var(--user-color, #38bdf8);
-  border-top: 2px solid var(--user-color, #38bdf8);
-  height: 100%;
   box-sizing: border-box;
+  animation: cursorPulse 1.2s ease-in-out infinite;
 }
 
-.yRemoteSelectionHead::after {
-  content: attr(data-yjs-user);
-  position: absolute;
-  top: -1.2em;
-  left: -2px;
-  font-size: 10px;
-  font-family: ui-monospace, monospace;
-  padding: 1px 4px;
-  border-radius: 3px 3px 3px 0;
-  background-color: var(--user-color, #38bdf8);
-  color: #020617;
-  white-space: nowrap;
-  line-height: 1.2;
-  pointer-events: none;
+.cm-ySelectionCaretDot {
+  display: none !important;
+}
+
+.cm-ySelectionInfo {
+  top: -0.15em !important;
+  left: 5px !important;
+  font-size: 8px !important;
+  font-family: ui-monospace, monospace !important;
+  font-weight: 600 !important;
+  padding: 1px 4px !important;
+  border-radius: 4px !important;
+  line-height: 1.15 !important;
+  color: #020617 !important;
+  opacity: 0 !important;
+  background-color: inherit !important;
+  transition: opacity 120ms ease-in-out !important;
+}
+
+.cm-ySelectionCaret:hover .cm-ySelectionInfo {
+  opacity: 0.78 !important;
+}
+
+@keyframes cursorPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }

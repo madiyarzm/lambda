@@ -23,6 +23,7 @@ interface CodeEditorProps {
   className?: string;
   roomId?: string;
   userName?: string;
+  userRole?: string;
 }
 
 const PYTHON_SNIPPETS = [
@@ -40,6 +41,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   className = "",
   roomId,
   userName,
+  userRole,
 }) => {
   const ydocRef = useRef<Y.Doc | null>(null);
   if (!ydocRef.current) {
@@ -48,7 +50,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const ydoc = ydocRef.current;
   const ytext = useMemo(() => ydoc.getText("code"), [ydoc]);
 
-  const { awareness, peers } = useCollab(roomId, ydoc, value, userName);
+  const { awareness, peers } = useCollab(roomId, ydoc, value, userName, userRole);
 
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -82,21 +84,23 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Presence bar: show colored dots for each remote peer */}
-      {peers.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1 border-b border-slate-800 bg-slate-900/80 text-[10px] text-slate-400">
-          {peers.map((p) => (
-            <span key={p.clientId} className="flex items-center gap-1">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: p.color }}
-              />
-              {p.name}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Presence bar: always rendered to avoid layout shift */}
+      <div className="flex items-center gap-3 px-3 h-6 min-h-[24px] border-b border-slate-800 bg-slate-900/80 text-[10px] text-slate-400">
+        {peers.map((p) => (
+          <span
+            key={p.clientId}
+            className={`flex items-center gap-1 ${p.isSelf ? "text-slate-300" : "text-slate-400"}`}
+          >
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: p.color }}
+            />
+            {p.name}
+          </span>
+        ))}
+      </div>
       <CodeMirror
+        key={`${roomId || "local"}:${awareness ? "awareness" : "plain"}`}
         height="100%"
         className={`flex-1 min-h-0 text-[13px] md:text-sm font-mono ${className}`}
         theme="dark"
