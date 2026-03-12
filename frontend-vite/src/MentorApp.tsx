@@ -3,18 +3,21 @@ import { CodeEditor } from "./components/CodeEditor";
 import {
   createAssignment,
   createClassroom,
+  createGroup,
   createSubmission,
   devLogin,
   getMe,
   healthCheck,
   isLoggedIn,
+  joinGroup,
   listAssignments,
   listClassrooms,
+  listGroups,
   listSubmissions,
   logout,
   runSandbox,
 } from "./lib/api";
-import { Play } from "lucide-react";
+import { Play, ChevronRight, ChevronDown } from "lucide-react";
 
 type View = "login" | "dashboard" | "classroom" | "assignment";
 
@@ -37,7 +40,11 @@ export const MentorApp: React.FC = () => {
   const [view, setView] = useState<View>("login");
   const [health, setHealth] = useState<string>("Checking…");
   const [user, setUser] = useState<any | null>(null);
-  const [classrooms, setClassrooms] = useState<any[]>([]);
+
+  const [groups, setGroups] = useState<any[]>([]);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [groupClassrooms, setGroupClassrooms] = useState<Record<string, any[]>>({});
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentClassroom, setCurrentClassroom] = useState<any | null>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -65,8 +72,8 @@ export const MentorApp: React.FC = () => {
         try {
           const me = await getMe();
           setUser(me);
-          const cls = await listClassrooms();
-          setClassrooms(cls || []);
+          const grps = await listGroups();
+          setGroups(grps || []);
           setView("dashboard");
         } catch {
           logout();
@@ -88,8 +95,8 @@ export const MentorApp: React.FC = () => {
       await devLogin(email, name, role);
       const me = await getMe();
       setUser(me);
-      const cls = await listClassrooms();
-      setClassrooms(cls || []);
+      const grps = await listGroups();
+      setGroups(grps || []);
       setView("dashboard");
     } catch (e: any) {
       setError(e.message || "Login failed.");
@@ -104,30 +111,59 @@ export const MentorApp: React.FC = () => {
     setView("login");
   };
 
-  const handleCreateClassroom = async () => {
+  const handleCreateGroup = async () => {
+    const name = window.prompt("Group name (e.g. 'Python Basics — Spring 2026'):");
+    if (!name || !name.trim()) return;
+    setError(null);
+    try {
+      const grp = await createGroup(name.trim(), "");
+      setGroups((prev) => [...prev, grp]);
+    } catch (e: any) {
+      setError(e.message || "Failed to create group.");
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    const code = window.prompt("Enter group invite code:");
+    if (!code || !code.trim()) return;
+    setError(null);
+    try {
+      await joinGroup(code.trim());
+      const grps = await listGroups();
+      setGroups(grps || []);
+    } catch (e: any) {
+      setError(e.message || "Failed to join group.");
+    }
+  };
+
+  const toggleGroup = async (groupId: string) => {
+    if (expandedGroupId === groupId) {
+      setExpandedGroupId(null);
+      return;
+    }
+    setExpandedGroupId(groupId);
+    if (!groupClassrooms[groupId]) {
+      try {
+        const cls = await listClassrooms(groupId);
+        setGroupClassrooms((prev) => ({ ...prev, [groupId]: cls || [] }));
+      } catch (e: any) {
+        setError(e.message || "Failed to load classrooms.");
+      }
+    }
+  };
+
+  const handleCreateClassroom = async (groupId: string) => {
     const name = window.prompt("Classroom name:");
     if (!name || !name.trim()) return;
     setError(null);
     try {
-      const cls = await createClassroom(name.trim(), "");
-      setClassrooms((prev) => [...prev, cls]);
+      const cls = await createClassroom(groupId, name.trim(), "");
+      setGroupClassrooms((prev) => ({
+        ...prev,
+        [groupId]: [...(prev[groupId] || []), cls],
+      }));
     } catch (e: any) {
       setError(e.message || "Failed to create classroom.");
-    }
-  };
-
-  const handleJoinClassroom = async () => {
-    const id = window.prompt("Classroom ID (UUID):");
-    if (!id || !id.trim()) return;
-    const code = window.prompt("Invite code (or leave empty):");
-    setError(null);
-    try {
-      const { enrollInClassroom } = await import("./lib/api");
-      await enrollInClassroom(id.trim(), code?.trim() || null);
-      const cls = await listClassrooms();
-      setClassrooms(cls || []);
-    } catch (e: any) {
-      setError(e.message || "Failed to join classroom.");
     }
   };
 
@@ -351,25 +387,25 @@ export const MentorApp: React.FC = () => {
 
       {view !== "login" && (
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: classrooms / projects sidebar */}
+          {/* Left sidebar: Groups → Classrooms */}
           <aside
             className={`border-r border-slate-800 bg-slate-900/90 flex flex-col transition-all duration-300 ${
               sidebarCollapsed ? "w-10" : "w-64"
             }`}
           >
             <div className="px-2 py-2 border-b border-slate-800 text-[10px] uppercase tracking-wide text-slate-500 flex items-center justify-between gap-1">
-              {!sidebarCollapsed && <span>Classrooms</span>}
+              {!sidebarCollapsed && <span>Groups</span>}
               {!sidebarCollapsed && (
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={handleJoinClassroom}
+                    onClick={handleJoinGroup}
                     className="text-xs border border-slate-800 rounded px-1.5 py-0.5 bg-slate-950 hover:bg-slate-900 transition-colors"
                   >
                     Join
                   </button>
                   {canCreate && (
                     <button
-                      onClick={handleCreateClassroom}
+                      onClick={handleCreateGroup}
                       className="text-sky-400 text-xs px-1.5 py-0.5 border border-slate-800 rounded"
                     >
                       +
@@ -378,49 +414,95 @@ export const MentorApp: React.FC = () => {
                 </div>
               )}
             </div>
-            <ul className="flex-1 overflow-auto text-sm">
-              {classrooms.map((c) => (
-                <li
-                  key={c.id}
-                  className={`border-b border-slate-800 cursor-pointer hover:bg-slate-900/80 hover:translate-x-0.5 transition-all ${
-                    sidebarCollapsed ? "px-0 py-2 flex justify-center" : "px-3 py-2"
-                  } ${
-                    currentClassroom?.id === c.id
-                      ? "bg-slate-900 text-sky-400 border-l-2 border-sky-500 shadow-[0_0_0_1px_rgba(56,189,248,0.15)_inset]"
-                      : ""
-                  }`}
-                  onClick={() => openClassroom(c)}
-                >
-                  {sidebarCollapsed ? (
+            <div className="flex-1 overflow-auto text-sm">
+              {groups.map((g) => {
+                const isExpanded = expandedGroupId === g.id;
+                const classrooms = groupClassrooms[g.id] || [];
+                return (
+                  <div key={g.id} className="border-b border-slate-800">
+                    {/* Group header */}
                     <div
-                      className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-mono"
-                      title={c.name}
+                      className={`flex items-center gap-1 cursor-pointer hover:bg-slate-900/80 transition-all ${
+                        sidebarCollapsed ? "px-0 py-2 justify-center" : "px-2 py-2"
+                      } ${isExpanded ? "bg-slate-900/60" : ""}`}
+                      onClick={() => toggleGroup(g.id)}
                     >
-                      {c.name?.[0]?.toUpperCase() || "C"}
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-[10px] text-slate-500 font-mono break-all">
-                        {c.id}
-                      </div>
-                      {c.description && (
-                        <div className="text-xs text-slate-500">
-                          {c.description}
+                      {sidebarCollapsed ? (
+                        <div
+                          className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-mono"
+                          title={g.name}
+                        >
+                          {g.name?.[0]?.toUpperCase() || "G"}
                         </div>
+                      ) : (
+                        <>
+                          <span className="text-slate-500">
+                            {isExpanded ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{g.name}</div>
+                            <div className="text-[10px] text-slate-500">
+                              {g.member_count || 0} member{(g.member_count || 0) !== 1 ? "s" : ""}
+                              {g.invite_code && (
+                                <span className="ml-1 font-mono text-slate-600">
+                                  [{g.invite_code}]
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+
+                    {/* Classrooms within group */}
+                    {isExpanded && !sidebarCollapsed && (
+                      <div className="bg-slate-950/40">
+                        {classrooms.map((c) => (
+                          <div
+                            key={c.id}
+                            className={`pl-6 pr-2 py-1.5 text-xs cursor-pointer hover:bg-slate-900/80 hover:translate-x-0.5 transition-all ${
+                              currentClassroom?.id === c.id
+                                ? "text-sky-400 bg-slate-900 border-l-2 border-sky-500"
+                                : "text-slate-400"
+                            }`}
+                            onClick={() => openClassroom(c)}
+                          >
+                            {c.name}
+                          </div>
+                        ))}
+                        {classrooms.length === 0 && (
+                          <div className="pl-6 pr-2 py-1.5 text-[10px] text-slate-600">
+                            No classrooms yet.
+                          </div>
+                        )}
+                        {canCreate && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateClassroom(g.id);
+                            }}
+                            className="pl-6 pr-2 py-1 text-[10px] text-sky-500 hover:text-sky-400 w-full text-left transition-colors"
+                          >
+                            + New Classroom
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </aside>
 
           {/* Middle / Right */}
           <div className="flex-1 flex flex-col">
             {view === "dashboard" && (
               <div className="flex-1 flex items-center justify-center text-sm text-slate-500">
-                Select a classroom or create a new one to begin.
+                Select a group and classroom to begin.
               </div>
             )}
 
@@ -828,7 +910,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
           </ul>
         </div>
 
-        {/* Submission detail: only when a submission is selected; closable and expandable */}
+        {/* Submission detail */}
         {selectedSubmission && (
           <div
             className={`flex flex-col bg-slate-950 border-l border-slate-800 shrink-0 transition-all duration-300 ${
@@ -891,4 +973,3 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     </div>
   );
 };
-

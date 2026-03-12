@@ -1,7 +1,8 @@
 """
 User model: identity from Google OAuth.
 
-Role determines whether user can create classrooms (teacher) or only enroll and submit (student).
+Role determines whether user can create groups/classrooms (teacher) or only
+join groups and submit (student).
 """
 
 import uuid
@@ -32,7 +33,7 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # Relationships for ORM navigation (optional)
     classrooms_taught = relationship("Classroom", back_populates="teacher", foreign_keys="Classroom.teacher_id")
-    enrollments = relationship("Enrollment", back_populates="user")
+    groups_owned = relationship("Group", back_populates="teacher", foreign_keys="Group.teacher_id")
+    group_memberships = relationship("GroupMembership", back_populates="user")
     submissions = relationship("Submission", back_populates="user")

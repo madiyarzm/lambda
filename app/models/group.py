@@ -1,8 +1,9 @@
 """
-Classroom model: container for assignments within a group.
+Group model: container for classrooms and memberships.
 
-A classroom belongs to a group and a teacher. Students access classrooms
-through their group membership — no per-classroom enrollment needed.
+A Group represents a course or cohort (e.g. "Python Basics — Spring 2026").
+Students join a group once and automatically gain access to all classrooms
+within it.
 """
 
 import uuid
@@ -15,27 +16,25 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 
 
-class Classroom(Base):
-    """Classroom within a group; has many assignments."""
+class Group(Base):
+    """Group (course/cohort) created by a teacher; has many classrooms and members."""
 
-    __tablename__ = "classrooms"
+    __tablename__ = "groups"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    group_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False
     )
     teacher_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    invite_code: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    group = relationship("Group", back_populates="classrooms")
-    teacher = relationship("User", back_populates="classrooms_taught", foreign_keys=[teacher_id])
-    assignments = relationship("Assignment", back_populates="classroom", cascade="all, delete-orphan")
+    teacher = relationship("User", back_populates="groups_owned", foreign_keys=[teacher_id])
+    memberships = relationship("GroupMembership", back_populates="group", cascade="all, delete-orphan")
+    classrooms = relationship("Classroom", back_populates="group", cascade="all, delete-orphan")

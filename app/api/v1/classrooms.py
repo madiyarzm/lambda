@@ -1,20 +1,18 @@
 """
-Classroom routes: creation, listing, and enrollment.
+Classroom routes: creation and listing within groups.
 
-These endpoints are protected and require a valid JWT.
+Classrooms belong to a group. Access is controlled through group membership.
 """
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.classroom import ClassroomCreate, ClassroomRead
 from app.services.classroom_service import (
     create_classroom,
-    enroll_user_in_classroom,
-    ensure_user_can_access_classroom,
-    get_classroom_or_404,
+    list_classrooms_for_group,
     list_classrooms_for_user,
 )
 
@@ -22,14 +20,25 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[ClassroomRead])
-def list_classrooms(current_user: CurrentUser, db: DBSession) -> list[ClassroomRead]:
+def list_classrooms(
+    current_user: CurrentUser,
+    db: DBSession,
+    group_id: UUID | None = Query(default=None, description="Filter classrooms by group."),
+) -> list[ClassroomRead]:
     """
     List classrooms visible to the current user.
 
-    Teachers see their own classrooms; students see classrooms they are enrolled in.
+    If group_id is provided, returns classrooms for that group only.
+    Otherwise returns all classrooms across all groups the user belongs to.
     """
+    try:
+        if group_id:
+            classrooms = list_classrooms_for_group(db, group_id=group_id, user=current_user)
+        else:
+            classrooms = list_classrooms_for_user(db, current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
-    classrooms = list_classrooms_for_user(db, current_user)
     return [ClassroomRead.model_validate(c) for c in classrooms]
 
 
@@ -40,34 +49,24 @@ def create_classroom_endpoint(
     db: DBSession,
 ) -> ClassroomRead:
     """
-    Create a new classroom owned by the current user.
+    Create a new classroom within a group.
 
-    Only users with the 'teacher' role should typically call this in the UI.
+    Only the group owner (teacher) can create classrooms.
     """
-
     if current_user.role != "teacher":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers can create classrooms")
 
-    classroom = create_classroom(db, teacher=current_user, name=payload.name, description=payload.description)
-    return ClassroomRead.model_validate(classroom)
-
-
-@router.post("/{classroom_id}/enroll", response_model=ClassroomRead)
-def enroll_in_classroom(
-    classroom_id: UUID,
-    current_user: CurrentUser,
-    db: DBSession,
-    invite_code: str | None = Query(default=None, description="Invite code for this classroom, if required."),
-) -> ClassroomRead:
-    """
-    Enroll the current user into a classroom using an invite code.
-
-    Teachers cannot enroll into their own classrooms using this endpoint.
-    """
-
-    classroom = get_classroom_or_404(db, classroom_id=classroom_id)
     try:
-        enroll_user_in_classroom(db, classroom=classroom, user=current_user, invite_code=invite_code)
+        classroom = create_classroom(
+            db,
+            group_id=payload.group_id,
+            teacher=current_user,
+            name=payload.name,
+            description=payload.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
     return ClassroomRead.model_validate(classroom)
