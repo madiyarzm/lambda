@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CodeEditor } from "./components/CodeEditor";
+import { DrawingCanvas } from "./components/DrawingCanvas";
 import {
   createAssignment,
   createClassroom,
@@ -338,6 +339,11 @@ export const MentorApp: React.FC = () => {
       ? `${currentClassroom.id}:${currentAssignment.id}:${activeFileId}`
       : undefined;
 
+  const drawingRoomId =
+    currentClassroom && currentAssignment
+      ? `drawing:${currentClassroom.id}:${currentAssignment.id}`
+      : undefined;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 flex flex-col">
       {/* Top bar */}
@@ -524,6 +530,7 @@ export const MentorApp: React.FC = () => {
                 setCode={handleCodeChange}
                 output={output}
                 roomId={roomIdForEditor}
+                drawingRoomId={drawingRoomId}
                 userName={user?.name || "Anonymous"}
                 userRole={user?.role || "student"}
                 files={files}
@@ -696,6 +703,7 @@ interface AssignmentViewProps {
   setCode: (c: string) => void;
   output: string;
   roomId?: string;
+  drawingRoomId?: string;
   userName?: string;
   userRole?: string;
   files: EditorFile[];
@@ -719,6 +727,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   setCode,
   output,
   roomId,
+  drawingRoomId,
   userName,
   userRole,
   files,
@@ -736,6 +745,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   onBack,
 }) => {
   const [detailExpanded, setDetailExpanded] = useState(false);
+  const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
   const isSuccess = selectedSubmission?.status === "success";
   return (
     <div className="flex-1 flex flex-col border-l border-slate-800 bg-slate-900/90 transition-colors">
@@ -754,61 +764,98 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
         {/* Code editor and output */}
         <div className="flex-1 flex flex-col border-r border-slate-800 transition-colors rounded-tl-lg rounded-bl-lg bg-slate-900/80">
           <div className="px-4 py-2 text-[11px] text-slate-400 flex items-center justify-between border-b border-slate-800/80">
-            <span className="tracking-wide uppercase">Code</span>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-[11px]">
-                {files.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => onSelectFile(f.id)}
-                    className={`px-2 py-0.5 rounded-t-md border-b-0 border text-xs font-mono transition-colors ${
-                      activeFileId === f.id
-                        ? "border-sky-500 text-sky-400 bg-slate-900 shadow-[0_0_0_1px_rgba(56,189,248,0.35)_inset]"
-                        : "border-slate-700 text-slate-300 bg-slate-950 hover:bg-slate-900"
-                    }`}
-                  >
-                    {f.name}
-                  </button>
-                ))}
-              </div>
+            {/* Code / Draw mode toggle */}
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={onAddFile}
-                className="px-1.5 py-0.5 text-xs border border-slate-700 rounded bg-slate-950 hover:bg-slate-900"
+                onClick={() => setEditorMode("code")}
+                className={`px-2 py-0.5 rounded-t-md border-b-0 border text-xs font-mono transition-colors ${
+                  editorMode === "code"
+                    ? "border-sky-500 text-sky-400 bg-slate-900 shadow-[0_0_0_1px_rgba(56,189,248,0.35)_inset]"
+                    : "border-slate-700 text-slate-300 bg-slate-950 hover:bg-slate-900"
+                }`}
               >
-                +
+                Code
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorMode("draw")}
+                className={`px-2 py-0.5 rounded-t-md border-b-0 border text-xs font-mono transition-colors ${
+                  editorMode === "draw"
+                    ? "border-sky-500 text-sky-400 bg-slate-900 shadow-[0_0_0_1px_rgba(56,189,248,0.35)_inset]"
+                    : "border-slate-700 text-slate-300 bg-slate-950 hover:bg-slate-900"
+                }`}
+              >
+                Draw
               </button>
             </div>
+            {editorMode === "code" && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 text-[11px]">
+                  {files.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => onSelectFile(f.id)}
+                      className={`px-2 py-0.5 rounded-t-md border-b-0 border text-xs font-mono transition-colors ${
+                        activeFileId === f.id
+                          ? "border-sky-500 text-sky-400 bg-slate-900 shadow-[0_0_0_1px_rgba(56,189,248,0.35)_inset]"
+                          : "border-slate-700 text-slate-300 bg-slate-950 hover:bg-slate-900"
+                      }`}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={onAddFile}
+                  className="px-1.5 py-0.5 text-xs border border-slate-700 rounded bg-slate-950 hover:bg-slate-900"
+                >
+                  +
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex-1 min-h-0 border-t border-slate-800 bg-slate-950 rounded-b-lg overflow-hidden">
-            <CodeEditor
-              key={activeFileId || "single-file"}
-              value={code}
-              onChange={setCode}
-              roomId={roomId}
-              userName={userName}
-              userRole={userRole}
-              className="bg-slate-950"
-            />
+            {editorMode === "code" ? (
+              <CodeEditor
+                key={activeFileId || "single-file"}
+                value={code}
+                onChange={setCode}
+                roomId={roomId}
+                userName={userName}
+                userRole={userRole}
+                className="bg-slate-950"
+              />
+            ) : (
+              <DrawingCanvas
+                roomId={drawingRoomId}
+                userName={userName}
+                userRole={userRole}
+                className="h-full"
+              />
+            )}
           </div>
-          <div className="px-4 py-2 flex items-center gap-2 border-t border-slate-800">
-            <button
-              onClick={onRun}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-gradient-to-r from-sky-500 to-indigo-500 text-slate-950 hover:from-sky-400 hover:to-indigo-400 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 shadow-[0_0_12px_rgba(56,189,248,0.45)] transition"
-            >
-              <Play className="h-3 w-3" />
-              <span>Run</span>
-            </button>
-            <button
-              onClick={onSubmit}
-              disabled={loading}
-              className="px-3 py-1.5 text-xs rounded-md border border-slate-800 bg-slate-950 hover:bg-slate-900 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 transition-colors"
-            >
-              Submit
-            </button>
-          </div>
+          {editorMode === "code" && (
+            <div className="px-4 py-2 flex items-center gap-2 border-t border-slate-800">
+              <button
+                onClick={onRun}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-gradient-to-r from-sky-500 to-indigo-500 text-slate-950 hover:from-sky-400 hover:to-indigo-400 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 shadow-[0_0_12px_rgba(56,189,248,0.45)] transition"
+              >
+                <Play className="h-3 w-3" />
+                <span>Run</span>
+              </button>
+              <button
+                onClick={onSubmit}
+                disabled={loading}
+                className="px-3 py-1.5 text-xs rounded-md border border-slate-800 bg-slate-950 hover:bg-slate-900 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 transition-colors"
+              >
+                Submit
+              </button>
+            </div>
+          )}
           <div className="border-t border-slate-800 px-4 py-2 text-[11px] text-slate-400 flex items-center justify-between bg-slate-950/90">
             <span className="tracking-wide uppercase">Terminal</span>
             <button
