@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Lambda — Drawing Mode Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #020617;
+    color: #cbd5e1;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Top bar ── */
+  header {
+    height: 44px;
+    background: rgba(2,6,23,0.95);
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .logo { font-weight: 700; font-size: 14px; letter-spacing: -0.5px; color: #f1f5f9; }
+  .badge {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+  }
+
+  /* ── Assignment header ── */
+  .assignment-bar {
+    height: 40px;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .back-btn {
+    background: #020617;
+    border: 1px solid #1e293b;
+    color: #94a3b8;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .assign-title { font-weight: 600; color: #e2e8f0; font-size: 13px; }
+
+  /* ── Mode toggle bar ── */
+  .mode-bar {
+    height: 38px;
+    border-bottom: 1px solid rgba(30,41,59,0.8);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 6px;
+    flex-shrink: 0;
+    background: rgba(15,23,42,0.8);
+  }
+  .tab {
+    padding: 3px 12px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid #334155;
+    font-size: 11px;
+    background: #020617;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .tab.active {
+    border-color: #38bdf8;
+    color: #38bdf8;
+    background: #0f172a;
+    box-shadow: inset 0 0 0 1px rgba(56,189,248,0.2);
+  }
+
+  /* ── Canvas area ── */
+  #canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #020617;
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  #hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    color: #1e293b;
+    font-size: 13px;
+  }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    border-top: 1px solid #1e293b;
+    background: rgba(2,6,23,0.9);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    min-height: 52px;
+  }
+  .divider { width: 1px; height: 22px; background: #1e293b; flex-shrink: 0; }
+
+  .tool-btn {
+    width: 32px; height: 32px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #020617;
+    color: #94a3b8;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .tool-btn.active { border-color: #38bdf8; color: #38bdf8; background: #0f172a; }
+  .tool-btn:hover { background: #0f172a; }
+
+  .swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid #334155;
+    cursor: pointer;
+    transition: transform 0.1s;
+    flex-shrink: 0;
+  }
+  .swatch.active { border-color: #38bdf8; transform: scale(1.2); }
+
+  .width-btn {
+    width: 38px; height: 30px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #020617;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+  .width-btn.active { border-color: #38bdf8; background: #0f172a; }
+  .width-dot { background: #cbd5e1; border-radius: 50%; }
+
+  .clear-btn {
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #020617;
+    color: #94a3b8;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+  .clear-btn:hover { border-color: rgba(239,68,68,0.5); color: #f87171; }
+
+  /* ── Footer ── */
+  footer {
+    height: 28px;
+    border-top: 1px solid #1e293b;
+    background: rgba(2,6,23,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-size: 10px;
+    color: #475569;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="logo">Lambda</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;color:#475569">
+    <span>Teacher (demo)</span>
+    <span class="badge">Draw Mode</span>
+  </div>
+</header>
+
+<div class="assignment-bar">
+  <button class="back-btn">← Back</button>
+  <span class="assign-title">Binary Search Trees</span>
+</div>
+
+<div class="mode-bar">
+  <button class="tab" id="tab-code" onclick="switchMode('code')">Code</button>
+  <button class="tab active" id="tab-draw" onclick="switchMode('draw')">Draw</button>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div id="hint">Draw something…</div>
+</div>
+
+<div class="toolbar" id="toolbar">
+  <!-- Tools -->
+  <button class="tool-btn active" id="btn-pen" title="Pen" onclick="setTool('pen')">✏️</button>
+  <button class="tool-btn" id="btn-eraser" title="Eraser" onclick="setTool('eraser')">🧹</button>
+
+  <div class="divider"></div>
+
+  <!-- Colors -->
+  <div style="display:flex;gap:5px;align-items:center" id="palette">
+    <div class="swatch active" style="background:#e2e8f0" data-color="#e2e8f0" onclick="setColor(this)"></div>
+    <div class="swatch" style="background:#38bdf8" data-color="#38bdf8" onclick="setColor(this)"></div>
+    <div class="swatch" style="background:#a78bfa" data-color="#a78bfa" onclick="setColor(this)"></div>
+    <div class="swatch" style="background:#34d399" data-color="#34d399" onclick="setColor(this)"></div>
+    <div class="swatch" style="background:#fbbf24" data-color="#fbbf24" onclick="setColor(this)"></div>
+    <div class="swatch" style="background:#fb7185" data-color="#fb7185" onclick="setColor(this)"></div>
+    <div class="swatch" style="background:#fb923c" data-color="#fb923c" onclick="setColor(this)"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Widths -->
+  <div style="display:flex;gap:4px;align-items:center">
+    <div class="width-btn" data-w="2" onclick="setWidth(this)"><div class="width-dot" style="width:8px;height:2px"></div></div>
+    <div class="width-btn active" data-w="5" onclick="setWidth(this)"><div class="width-dot" style="width:16px;height:5px"></div></div>
+    <div class="width-btn" data-w="12" onclick="setWidth(this)"><div class="width-dot" style="width:22px;height:10px"></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <button class="clear-btn" onclick="clearCanvas()">🗑 Clear</button>
+</div>
+
+<footer>
+  <span>Python Sandbox | <span style="color:#94a3b8">Teacher Mode</span></span>
+  <span>Drawing Mode Demo</span>
+</footer>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+const wrap = document.getElementById('canvas-wrap');
+
+let tool = 'pen';
+let color = '#e2e8f0';
+let width = 5;
+let drawing = false;
+let strokes = [];
+let currentStroke = null;
+
+function resize() {
+  const r = wrap.getBoundingClientRect();
+  canvas.width = r.width;
+  canvas.height = r.height;
+  redraw();
+}
+
+new ResizeObserver(resize).observe(wrap);
+resize();
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const s of strokes) drawStroke(s);
+  if (currentStroke) drawStroke(currentStroke);
+}
+
+function drawStroke(s) {
+  if (s.points.length < 2) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = s.width;
+  if (s.tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = s.color;
+  }
+  const pts = s.points;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const mx = (pts[i].x + pts[i+1].x) / 2;
+    const my = (pts[i].y + pts[i+1].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+  }
+  ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function pt(e) {
+  const r = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+function start(e) {
+  e.preventDefault();
+  drawing = true;
+  const p = pt(e);
+  currentStroke = {
+    tool, color,
+    width: tool === 'eraser' ? width * 4 : width,
+    points: [p]
+  };
+  hint.style.display = 'none';
+}
+
+function move(e) {
+  e.preventDefault();
+  if (!drawing || !currentStroke) return;
+  currentStroke.points.push(pt(e));
+  redraw();
+}
+
+function end(e) {
+  e.preventDefault();
+  if (!drawing || !currentStroke) return;
+  drawing = false;
+  if (currentStroke.points.length >= 2) strokes.push(currentStroke);
+  currentStroke = null;
+  redraw();
+}
+
+canvas.addEventListener('pointerdown', start);
+canvas.addEventListener('pointermove', move);
+canvas.addEventListener('pointerup', end);
+canvas.addEventListener('pointerleave', end);
+
+function setTool(t) {
+  tool = t;
+  document.getElementById('btn-pen').classList.toggle('active', t === 'pen');
+  document.getElementById('btn-eraser').classList.toggle('active', t === 'eraser');
+  canvas.style.cursor = t === 'eraser' ? 'cell' : 'crosshair';
+}
+
+function setColor(el) {
+  color = el.dataset.color;
+  tool = 'pen';
+  setTool('pen');
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function setWidth(el) {
+  width = parseInt(el.dataset.w);
+  document.querySelectorAll('.width-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function clearCanvas() {
+  strokes = [];
+  currentStroke = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  hint.style.display = 'flex';
+}
+
+function switchMode(m) {
+  document.getElementById('tab-code').classList.toggle('active', m === 'code');
+  document.getElementById('tab-draw').classList.toggle('active', m === 'draw');
+  if (m === 'code') {
+    document.getElementById('canvas-wrap').style.display = 'none';
+    document.getElementById('toolbar').style.display = 'none';
+    document.getElementById('code-mock').style.display = 'flex';
+  } else {
+    document.getElementById('canvas-wrap').style.display = 'block';
+    document.getElementById('toolbar').style.display = 'flex';
+    document.getElementById('code-mock').style.display = 'none';
+    resize();
+  }
+}
+
+// Code view mock (shown when switching to Code tab)
+const codeMock = document.createElement('div');
+codeMock.id = 'code-mock';
+codeMock.style.cssText = 'display:none;flex:1;flex-direction:column;background:#020617;overflow:hidden';
+codeMock.innerHTML = `
+  <div style="padding:10px 16px;font-size:11px;color:#475569;border-bottom:1px solid #1e293b;display:flex;gap:6px">
+    <span style="border:1px solid #38bdf8;color:#38bdf8;padding:2px 8px;border-radius:4px 4px 0 0;background:#0f172a;font-size:10px">main.py</span>
+    <button onclick="switchMode('draw')" style="margin-left:auto;background:#020617;border:1px solid #1e293b;color:#94a3b8;border-radius:4px;padding:2px 8px;font-size:10px;font-family:inherit;cursor:pointer">← Back to Draw</button>
+  </div>
+  <pre style="flex:1;padding:16px;font-size:12px;color:#94a3b8;overflow:auto;line-height:1.7">
+<span style="color:#38bdf8">class</span> <span style="color:#fbbf24">TreeNode</span>:
+    <span style="color:#38bdf8">def</span> <span style="color:#34d399">__init__</span>(self, val=<span style="color:#fb923c">0</span>):
+        self.val = val
+        self.left = <span style="color:#a78bfa">None</span>
+        self.right = <span style="color:#a78bfa">None</span>
+
+<span style="color:#38bdf8">def</span> <span style="color:#34d399">insert</span>(root, val):
+    <span style="color:#38bdf8">if not</span> root:
+        <span style="color:#38bdf8">return</span> TreeNode(val)
+    <span style="color:#38bdf8">if</span> val &lt; root.val:
+        root.left = insert(root.left, val)
+    <span style="color:#38bdf8">else</span>:
+        root.right = insert(root.right, val)
+    <span style="color:#38bdf8">return</span> root
+  </pre>
+  <div style="padding:8px 16px;border-top:1px solid #1e293b;display:flex;gap:8px">
+    <button style="background:linear-gradient(to right,#0ea5e9,#6366f1);border:none;color:#020617;padding:6px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">▶ Run</button>
+    <button style="background:#020617;border:1px solid #1e293b;color:#94a3b8;padding:6px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Submit</button>
+  </div>
+  <div style="padding:4px 16px 8px;border-top:1px solid #1e293b;font-size:10px;color:#475569;background:rgba(2,6,23,0.9)">TERMINAL</div>
+  <div style="height:70px;background:#020617;padding:8px 16px;font-size:10px;color:#475569">No runs yet.</div>`;
+document.querySelector('.toolbar').after(codeMock);
+// insert before footer
+document.querySelector('footer').before(codeMock);
+</script>
+</body>
+</html>
