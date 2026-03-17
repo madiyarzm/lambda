@@ -151,6 +151,7 @@ export async function createAssignment(
   title: string,
   description = "",
   templateCode = "",
+  dueAt: string | null = null,
 ): Promise<any> {
   return apiClient.post("/api/v1/assignments/", {
     classroom_id: classroomId,
@@ -158,7 +159,7 @@ export async function createAssignment(
     description,
     template_code: templateCode,
     test_code: null,
-    due_at: null,
+    due_at: dueAt,
   });
 }
 
