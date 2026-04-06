@@ -6,10 +6,10 @@ external identity providers (e.g., Google) or development helpers.
 """
 
 from typing import Any, Dict
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.models.user import User
 
 
@@ -43,6 +43,12 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.query(User).filter(User.email == email).one_or_none()
 
 
+def _resolve_role_for_email(email: str) -> str:
+    """Return 'teacher' for the admin email, 'student' for everyone else."""
+    settings = get_settings()
+    return "teacher" if email == settings.admin_email else "student"
+
+
 def create_user_from_google_profile(
     db: Session, profile: Dict[str, Any], default_role: str = "student"
 ) -> User:
@@ -52,7 +58,7 @@ def create_user_from_google_profile(
     Args:
         db: Database session.
         profile: Mapping with keys like 'sub', 'email', 'name', 'picture'.
-        default_role: Fallback role for a new user.
+        default_role: Fallback role for a new user (overridden for admin email).
 
     Returns:
         Persisted User instance.
@@ -63,12 +69,14 @@ def create_user_from_google_profile(
     name = str(profile.get("name") or email)
     picture = profile.get("picture")
 
+    role = _resolve_role_for_email(email) if email else default_role
+
     user = User(
         google_id=google_id,
         email=email,
         name=name,
         picture_url=picture,
-        role=default_role,
+        role=role,
     )
     db.add(user)
     db.commit()
@@ -81,6 +89,7 @@ def get_or_create_google_user(db: Session, profile: Dict[str, Any]) -> User:
     Find or create a user from a Google profile.
 
     Existing users are matched by google_id if possible, otherwise by email.
+    The admin email is always kept as teacher.
     """
 
     google_id = str(profile.get("sub"))
@@ -89,14 +98,27 @@ def get_or_create_google_user(db: Session, profile: Dict[str, Any]) -> User:
     if google_id:
         existing = get_user_by_google_id(db, google_id=google_id)
         if existing:
+            # Ensure admin email retains teacher role even if DB has wrong role.
+            expected_role = _resolve_role_for_email(existing.email)
+            if existing.email == get_settings().admin_email and existing.role != expected_role:
+                existing.role = expected_role
+                db.commit()
+                db.refresh(existing)
             return existing
 
     if email:
         existing = get_user_by_email(db, email=email)
         if existing:
             # Backfill google_id if it was not set earlier.
+            changed = False
             if not existing.google_id and google_id:
                 existing.google_id = google_id
+                changed = True
+            expected_role = _resolve_role_for_email(email)
+            if email == get_settings().admin_email and existing.role != expected_role:
+                existing.role = expected_role
+                changed = True
+            if changed:
                 db.commit()
                 db.refresh(existing)
             return existing

@@ -33,6 +33,7 @@ class Submission(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     result_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     assignment = relationship("Assignment", back_populates="submissions")
     user = relationship("User", back_populates="submissions")

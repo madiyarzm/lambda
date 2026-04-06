@@ -4,8 +4,11 @@
  * Mirrors the backend REST API with typed wrappers.
  */
 
-const API_BASE =
-  window.location.port === "8000" ? "" : "http://127.0.0.1:8000";
+// In production (single Render service) VITE_API_URL is empty → same-origin.
+// In local dev, Vite runs on :5173 so we point to the backend on :8000.
+const API_BASE: string =
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (window.location.port === "8000" ? "" : "http://localhost:8000");
 
 function getToken(): string | null {
   return window.localStorage.getItem("lambda_token");
@@ -47,6 +50,7 @@ export const apiClient = {
   get: (path: string) => api("GET", path),
   post: (path: string, body: unknown) => api("POST", path, body),
   put: (path: string, body: unknown) => api("PUT", path, body),
+  patch: (path: string, body: unknown) => api("PATCH", path, body),
   delete: (path: string) => api("DELETE", path),
 };
 
@@ -60,28 +64,20 @@ export async function healthCheck(): Promise<any | null> {
 
 // --- Auth ---
 
-export async function devLogin(
-  email: string,
-  name: string,
-  role: string = "student",
-): Promise<any> {
-  const data = await api(
-    "POST",
-    `/api/v1/auth/dev-login?email=${encodeURIComponent(email)}&name=${encodeURIComponent(
-      name,
-    )}&role=${encodeURIComponent(role)}`,
-    null,
-    false,
-  );
-  if (data?.access_token) {
-    window.localStorage.setItem("lambda_token", data.access_token);
-    return data;
-  }
-  throw new Error(data?.detail || "Login failed");
+export function googleLogin(): void {
+  window.location.href = `${API_BASE}/api/v1/auth/google`;
+}
+
+export function saveToken(token: string): void {
+  window.localStorage.setItem("lambda_token", token);
 }
 
 export async function getMe(): Promise<any> {
   return apiClient.get("/api/v1/users/me");
+}
+
+export async function getMyStats(): Promise<{ xp: number; submissions_total: number; submissions_accepted: number }> {
+  return apiClient.get("/api/v1/users/me/stats");
 }
 
 export function isLoggedIn(): boolean {
@@ -90,6 +86,16 @@ export function isLoggedIn(): boolean {
 
 export function logout(): void {
   window.localStorage.removeItem("lambda_token");
+}
+
+// --- Admin ---
+
+export async function listAllUsers(): Promise<any[]> {
+  return apiClient.get("/api/v1/users/");
+}
+
+export async function updateUserRole(userId: string, role: "teacher" | "student"): Promise<any> {
+  return apiClient.patch(`/api/v1/users/${userId}/role`, { role });
 }
 
 // --- Groups ---
@@ -146,21 +152,31 @@ export async function listAssignments(classroomId: string): Promise<any[]> {
   return apiClient.get(`/api/v1/assignments/?classroom_id=${classroomId}`);
 }
 
+export async function getHint(assignmentId: string, code: string, attemptNumber: number): Promise<string> {
+  const res = await apiClient.post(`/api/v1/assignments/${assignmentId}/hint`, { code, attempt_number: attemptNumber });
+  return res?.hint ?? "Keep going — you're almost there!";
+}
+
 export async function createAssignment(
   classroomId: string,
   title: string,
   description = "",
   templateCode = "",
   dueAt: string | null = null,
+  testCode: string | null = null,
 ): Promise<any> {
   return apiClient.post("/api/v1/assignments/", {
     classroom_id: classroomId,
     title,
     description,
     template_code: templateCode,
-    test_code: null,
+    test_code: testCode,
     due_at: dueAt,
   });
+}
+
+export async function addSubmissionFeedback(submissionId: string, feedback: string): Promise<any> {
+  return apiClient.patch(`/api/v1/submissions/${submissionId}/feedback`, { feedback });
 }
 
 // --- Submissions ---

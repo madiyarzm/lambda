@@ -7,12 +7,19 @@ All endpoints are protected and use the current authenticated user.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.assignment import AssignmentCreate, AssignmentRead
-from app.services.assignment_service import create_assignment, list_assignments_for_classroom
+from app.services.assignment_service import create_assignment, get_assignment_or_404, list_assignments_for_classroom
+from app.services.hint_service import get_hint
 
 router = APIRouter()
+
+
+class HintRequest(BaseModel):
+    code: str
+    attempt_number: int = 1
 
 
 @router.get("/", response_model=list[AssignmentRead])
@@ -61,4 +68,28 @@ def create_assignment_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     return AssignmentRead.model_validate(assignment)
+
+
+@router.post("/{assignment_id}/hint")
+def get_hint_endpoint(
+    assignment_id: UUID,
+    payload: HintRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+) -> dict:
+    """
+    Return a hint for a stuck student. Uses Claude if ANTHROPIC_API_KEY is set,
+    otherwise returns a generic placeholder hint.
+    """
+    try:
+        assignment = get_assignment_or_404(db, assignment_id=assignment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    hint = get_hint(
+        code=payload.code,
+        description=assignment.description or assignment.title,
+        attempt_number=payload.attempt_number,
+    )
+    return {"hint": hint}
 

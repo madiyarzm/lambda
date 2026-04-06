@@ -83,6 +83,8 @@ class SubmissionRead(SubmissionBase):
     submitter_email: str | None = None
     status_display: str = ""
     error_summary: str | None = None
+    feedback: str | None = None
+    test_passed: bool | None = None
 
     class Config:
         """

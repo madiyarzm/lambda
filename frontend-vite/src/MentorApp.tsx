@@ -1,16 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CodeEditor } from "./components/CodeEditor";
 import { DrawingCanvas } from "./components/DrawingCanvas";
+import { SimpleInputModal } from "./components/SimpleInputModal";
 import {
+  addSubmissionFeedback,
   createAssignment,
   createClassroom,
   createGroup,
   createSubmission,
-  devLogin,
+  getHint,
   getMe,
+  getMyStats,
   healthCheck,
   isLoggedIn,
   joinGroup,
+  listAllUsers,
   listAssignments,
   listClassrooms,
   listGroupMembers,
@@ -18,8 +23,10 @@ import {
   listSubmissions,
   logout,
   runSandbox,
+  updateUserRole,
 } from "./lib/api";
-import { Play, ChevronRight, ChevronDown, X } from "lucide-react";
+import { Play, ChevronRight, ChevronDown, X, Users, Shield, Copy, Check, Hand, Zap, Eye } from "lucide-react";
+import { Confetti } from "./components/Confetti";
 
 // ─── Deadline utilities ────────────────────────────────────────────────────
 
@@ -86,6 +93,7 @@ interface CreateAssignmentModalData {
   title: string;
   description: string;
   templateCode: string;
+  testCode: string | null;
   dueAt: string | null;
 }
 
@@ -101,6 +109,8 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
   const [isHomework, setIsHomework] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("23:59");
+  const [showTestCode, setShowTestCode] = useState(false);
+  const [testCode, setTestCode] = useState("# assert your_function() == expected_output\n");
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -117,7 +127,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onConfirm({ title: title.trim(), description, templateCode, dueAt });
+    onConfirm({ title: title.trim(), description, templateCode, testCode: showTestCode ? testCode : null, dueAt });
   };
 
   return (
@@ -226,6 +236,40 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
             />
           </div>
 
+          {/* Auto-grading test code toggle */}
+          <div className="space-y-2 rounded-lg border border-slate-800 p-3 bg-slate-950/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-300 font-medium">Auto-Grading Tests</span>
+                <p className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                  Runs after submission — like HackerRank. Students see pass/fail.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTestCode((v) => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                  showTestCode ? "bg-sky-500" : "bg-slate-700"
+                }`}
+                aria-checked={showTestCode}
+                role="switch"
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                  showTestCode ? "translate-x-4.5" : "translate-x-0.5"
+                }`} />
+              </button>
+            </div>
+            {showTestCode && (
+              <textarea
+                value={testCode}
+                onChange={(e) => setTestCode(e.target.value)}
+                rows={4}
+                placeholder="# assert my_function(2) == 4"
+                className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-1.5 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-sky-500/60 resize-none"
+              />
+            )}
+          </div>
+
           {/* Buttons */}
           <div className="flex justify-end gap-2 pt-1">
             <button
@@ -253,9 +297,37 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
   );
 };
 
+// ─── CopyInviteButton ──────────────────────────────────────────────────────
+
+const CopyInviteButton: React.FC<{ inviteCode: string }> = ({ inviteCode }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(inviteCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={copied ? "Copied!" : `Copy invite code: ${inviteCode}`}
+      className="inline-flex items-center gap-0.5 font-mono text-[10px] text-slate-500 hover:text-sky-400 transition-colors"
+    >
+      {copied ? (
+        <Check className="h-2.5 w-2.5 text-emerald-400" />
+      ) : (
+        <Copy className="h-2.5 w-2.5" />
+      )}
+      {inviteCode}
+    </button>
+  );
+};
+
 // ─── App types ─────────────────────────────────────────────────────────────
 
-type View = "login" | "dashboard" | "classroom" | "assignment";
+type View = "dashboard" | "classroom" | "assignment";
 
 type EditorFile = {
   id: string;
@@ -273,7 +345,9 @@ type TerminalEntry = {
 };
 
 export const MentorApp: React.FC = () => {
-  const [view, setView] = useState<View>("login");
+  const navigate = useNavigate();
+  const [authChecked, setAuthChecked] = useState(false);
+  const [view, setView] = useState<View>("dashboard");
   const [health, setHealth] = useState<string>("Checking…");
   const [user, setUser] = useState<any | null>(null);
 
@@ -298,6 +372,29 @@ export const MentorApp: React.FC = () => {
   const [submissionsByAssignment, setSubmissionsByAssignment] = useState<Record<string, any[]>>({});
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
 
+  // Input modals (replacing window.prompt)
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
+  const [showCreateClassroomModal, setShowCreateClassroomModal] = useState<string | null>(null); // groupId
+  const [showAddFileModal, setShowAddFileModal] = useState(false);
+
+  // Admin panel
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+
+  // Gamification
+  const [xp, setXp] = useState<number | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Hints
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [hint, setHint] = useState<string | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
+
+  // Admin "View as" role override
+  const [viewAsRole, setViewAsRole] = useState<"teacher" | "student" | null>(null);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -311,63 +408,47 @@ export const MentorApp: React.FC = () => {
         try {
           const me = await getMe();
           setUser(me);
-          const grps = await listGroups();
+          const [grps, stats] = await Promise.all([listGroups(), getMyStats().catch(() => null)]);
           setGroups(grps || []);
-          setView("dashboard");
+          if (stats) setXp(stats.xp);
+          setAuthChecked(true);
         } catch {
           logout();
-          setUser(null);
-          setView("login");
+          navigate("/", { replace: true });
         }
       } else {
-        setView("login");
+        navigate("/", { replace: true });
       }
     };
 
     void init();
   }, []);
 
-  const handleDevLogin = async (email: string, name: string, role: string) => {
-    setError(null);
-    setLoading(true);
-    try {
-      await devLogin(email, name, role);
-      const me = await getMe();
-      setUser(me);
-      const grps = await listGroups();
-      setGroups(grps || []);
-      setView("dashboard");
-    } catch (e: any) {
-      setError(e.message || "Login failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogout = () => {
     logout();
-    setUser(null);
-    setView("login");
+    navigate("/", { replace: true });
   };
 
-  const handleCreateGroup = async () => {
-    const name = window.prompt("Group name (e.g. 'Python Basics — Spring 2026'):");
-    if (!name || !name.trim()) return;
+  const handleCreateGroup = () => setShowCreateGroupModal(true);
+
+  const handleCreateGroupConfirm = async (name: string) => {
+    setShowCreateGroupModal(false);
     setError(null);
     try {
-      const grp = await createGroup(name.trim(), "");
+      const grp = await createGroup(name, "");
       setGroups((prev) => [...prev, grp]);
     } catch (e: any) {
       setError(e.message || "Failed to create group.");
     }
   };
 
-  const handleJoinGroup = async () => {
-    const code = window.prompt("Enter group invite code:");
-    if (!code || !code.trim()) return;
+  const handleJoinGroup = () => setShowJoinGroupModal(true);
+
+  const handleJoinGroupConfirm = async (code: string) => {
+    setShowJoinGroupModal(false);
     setError(null);
     try {
-      await joinGroup(code.trim());
+      await joinGroup(code);
       const grps = await listGroups();
       setGroups(grps || []);
     } catch (e: any) {
@@ -391,12 +472,15 @@ export const MentorApp: React.FC = () => {
     }
   };
 
-  const handleCreateClassroom = async (groupId: string) => {
-    const name = window.prompt("Classroom name:");
-    if (!name || !name.trim()) return;
+  const handleCreateClassroom = (groupId: string) => setShowCreateClassroomModal(groupId);
+
+  const handleCreateClassroomConfirm = async (name: string) => {
+    const groupId = showCreateClassroomModal;
+    setShowCreateClassroomModal(null);
+    if (!groupId) return;
     setError(null);
     try {
-      const cls = await createClassroom(groupId, name.trim(), "");
+      const cls = await createClassroom(groupId, name, "");
       setGroupClassrooms((prev) => ({
         ...prev,
         [groupId]: [...(prev[groupId] || []), cls],
@@ -442,6 +526,7 @@ export const MentorApp: React.FC = () => {
         data.description,
         data.templateCode,
         data.dueAt,
+        data.testCode,
       );
       setAssignments((prev) => [...prev, asg]);
       // Add empty submissions entry for the new assignment
@@ -468,11 +553,13 @@ export const MentorApp: React.FC = () => {
     setOutput("(Run or submit to see output)");
     setTerminalEntries([]);
     setError(null);
+    setFailedAttempts(0);
+    setHint(null);
     try {
       const subs = await listSubmissions(asg.id);
       setSubmissions(subs || []);
       // Fetch group members for teacher homework roster
-      if (user?.role === "teacher" && asg.due_at && currentClassroom?.group_id) {
+      if (effectiveRole === "teacher" && asg.due_at && currentClassroom?.group_id) {
         try {
           const members = await listGroupMembers(currentClassroom.group_id);
           setGroupMembers((members || []).filter((m: any) => m.role === "student"));
@@ -490,12 +577,13 @@ export const MentorApp: React.FC = () => {
 
   const handleAddFile = () => {
     if (!currentAssignment) return;
-    const index = files.length + 1;
-    const suggested = `file${index}.py`;
-    const name = window.prompt("New file name:", suggested);
-    if (!name || !name.trim()) return;
+    setShowAddFileModal(true);
+  };
+
+  const handleAddFileConfirm = (name: string) => {
+    setShowAddFileModal(false);
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const file: EditorFile = { id, name: name.trim(), content: "" };
+    const file: EditorFile = { id, name, content: "" };
     setFiles((prev) => [...prev, file]);
     setActiveFileId(id);
     setCode("");
@@ -570,6 +658,15 @@ export const MentorApp: React.FC = () => {
     try {
       const sub = await createSubmission(currentAssignment.id, code);
       setSubmissions((prev) => [sub, ...prev]);
+      if (sub.status === "success") {
+        setShowConfetti(true);
+        setXp((prev) => (prev ?? 0) + 10);
+        setFailedAttempts(0);
+        setHint(null);
+      } else {
+        setXp((prev) => (prev ?? 0) + 2);
+        setFailedAttempts((prev) => prev + 1);
+      }
       const text = `Submitted! Status: ${sub.status}`;
       setOutput(text);
       const status: "success" | "error" =
@@ -592,7 +689,52 @@ export const MentorApp: React.FC = () => {
     }
   };
 
-  const canCreate = user?.role === "teacher";
+  const isAdmin = user?.email === "madiyar.zmm@gmail.com";
+  const effectiveRole: "teacher" | "student" = (isAdmin && viewAsRole) ? viewAsRole : (user?.role || "student");
+  const canCreate = effectiveRole === "teacher";
+
+  const handleOpenAdminPanel = async () => {
+    setShowAdminPanel(true);
+    setAdminLoading(true);
+    try {
+      const users = await listAllUsers();
+      setAdminUsers(users || []);
+    } catch (e: any) {
+      setError(e.message || "Failed to load users.");
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const handleToggleRole = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === "teacher" ? "student" : "teacher";
+    try {
+      const updated = await updateUserRole(userId, newRole as "teacher" | "student");
+      setAdminUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: updated.role } : u));
+    } catch (e: any) {
+      setError(e.message || "Failed to update role.");
+    }
+  };
+
+  const handleGetHint = async () => {
+    if (!currentAssignment) return;
+    setHintLoading(true);
+    try {
+      const h = await getHint(currentAssignment.id, code, failedAttempts);
+      setHint(h);
+      setXp((prev) => Math.max(0, (prev ?? 0) - 5));
+    } catch {
+      setHint("Keep going — re-read the problem statement and trace through your code step by step.");
+    } finally {
+      setHintLoading(false);
+    }
+  };
+
+  const handleSaveFeedback = async (submissionId: string, feedback: string) => {
+    const updated = await addSubmissionFeedback(submissionId, feedback);
+    setSelectedSubmission(updated);
+    setSubmissions((prev) => prev.map((s) => s.id === submissionId ? { ...s, feedback: updated.feedback } : s));
+  };
 
   const handleClearTerminal = () => {
     setTerminalEntries([]);
@@ -607,6 +749,17 @@ export const MentorApp: React.FC = () => {
     currentClassroom && currentAssignment
       ? `drawing:${currentClassroom.id}:${currentAssignment.id}`
       : undefined;
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm">
+          <span className="h-4 w-4 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 flex flex-col">
@@ -625,17 +778,58 @@ export const MentorApp: React.FC = () => {
           </div>
           <div className="font-mono font-bold text-sm tracking-tight">Lambda</div>
         </div>
-        <div className="flex items-center gap-4 text-slate-400">
-          <span>{health}</span>
+        <div className="flex items-center gap-3 text-slate-400">
+          <span className="hidden sm:inline">{health}</span>
           {user && (
-            <span>
-              {user.name} ({user.role})
-            </span>
+            <div className="flex items-center gap-1.5">
+              {isAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                  <Shield className="h-2.5 w-2.5" />
+                  Admin
+                </span>
+              )}
+              {effectiveRole === "student" && xp !== null && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border border-sky-500/30 bg-sky-500/10 text-sky-300 font-mono">
+                  <Zap className="h-2.5 w-2.5 text-yellow-400" />
+                  {xp} XP
+                </span>
+              )}
+              <span className="text-xs">{user.name}</span>
+            </div>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                const next = effectiveRole === "teacher" ? "student" : "teacher";
+                setViewAsRole(next);
+                setFailedAttempts(0);
+                setHint(null);
+              }}
+              className={`flex items-center gap-1 px-2 py-1 border rounded-md text-xs transition-colors ${
+                viewAsRole === "student"
+                  ? "border-emerald-600/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                  : "border-slate-800 bg-slate-950 text-slate-400 hover:bg-slate-900"
+              }`}
+              title={`Currently viewing as ${effectiveRole} — click to switch`}
+            >
+              <Eye className="h-3 w-3" />
+              <span className="hidden sm:inline">{effectiveRole === "student" ? "Student view" : "Teacher view"}</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={handleOpenAdminPanel}
+              className="flex items-center gap-1 px-2 py-1 border border-slate-800 rounded-md bg-slate-950 hover:bg-slate-900 text-xs transition-colors"
+              title="Manage users"
+            >
+              <Users className="h-3 w-3" />
+              <span className="hidden sm:inline">Users</span>
+            </button>
           )}
           {user && (
             <button
               onClick={handleLogout}
-              className="px-2 py-1 border border-slate-800 rounded-md bg-slate-950 hover:bg-slate-900"
+              className="px-2 py-1 border border-slate-800 rounded-md bg-slate-950 hover:bg-slate-900 text-xs transition-colors"
             >
               Logout
             </button>
@@ -651,12 +845,7 @@ export const MentorApp: React.FC = () => {
       )}
 
       {/* Content */}
-      {view === "login" && (
-        <LoginView loading={loading} onLogin={handleDevLogin} />
-      )}
-
-      {view !== "login" && (
-        <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
           {/* Left sidebar: Groups → Classrooms */}
           <aside
             className={`border-r border-slate-800 bg-slate-900/90 flex flex-col transition-all duration-300 ${
@@ -715,12 +904,10 @@ export const MentorApp: React.FC = () => {
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{g.name}</div>
-                            <div className="text-[10px] text-slate-500">
+                            <div className="text-[10px] text-slate-500 flex items-center gap-1">
                               {g.member_count || 0} member{(g.member_count || 0) !== 1 ? "s" : ""}
                               {g.invite_code && (
-                                <span className="ml-1 font-mono text-slate-600">
-                                  [{g.invite_code}]
-                                </span>
+                                <CopyInviteButton inviteCode={g.invite_code} />
                               )}
                             </div>
                           </div>
@@ -771,8 +958,44 @@ export const MentorApp: React.FC = () => {
           {/* Middle / Right */}
           <div className="flex-1 flex flex-col">
             {view === "dashboard" && (
-              <div className="flex-1 flex items-center justify-center text-sm text-slate-500">
-                Select a group and classroom to begin.
+              <div className="flex-1 flex items-center justify-center p-8">
+                {groups.length === 0 ? (
+                  <div className="text-center space-y-4 max-w-xs">
+                    <div className="mx-auto h-14 w-14 rounded-full border border-slate-800 bg-slate-900/60 flex items-center justify-center text-2xl font-bold font-mono bg-gradient-to-br from-sky-500/20 to-indigo-500/20">
+                      λ
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-200 mb-1">
+                        {canCreate ? "Create your first group" : "Join a group to get started"}
+                      </h2>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {canCreate
+                          ? "Groups hold your classrooms and students. Create one and share the invite code with your students."
+                          : "Ask your teacher for an invite code, then click Join in the sidebar."}
+                      </p>
+                    </div>
+                    {canCreate ? (
+                      <button
+                        onClick={handleCreateGroup}
+                        className="px-4 py-2 text-xs rounded-md bg-sky-500 text-slate-950 hover:bg-sky-400 font-medium transition-colors"
+                      >
+                        + Create Group
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleJoinGroup}
+                        className="px-4 py-2 text-xs rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 transition-colors"
+                      >
+                        Join with Invite Code
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-slate-500">Select a classroom from the sidebar to begin.</p>
+                    <p className="text-xs text-slate-600">Expand a group, then click a classroom.</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -781,7 +1004,7 @@ export const MentorApp: React.FC = () => {
                 classroom={currentClassroom}
                 assignments={assignments}
                 canCreate={canCreate}
-                userRole={user?.role || "student"}
+                userRole={effectiveRole}
                 userId={user?.id || ""}
                 submissionsByAssignment={submissionsByAssignment}
                 onCreateAssignment={handleCreateAssignment}
@@ -799,7 +1022,7 @@ export const MentorApp: React.FC = () => {
                 roomId={roomIdForEditor}
                 drawingRoomId={drawingRoomId}
                 userName={user?.name || "Anonymous"}
-                userRole={user?.role || "student"}
+                userRole={effectiveRole}
                 userId={user?.id || ""}
                 groupMembers={groupMembers}
                 files={files}
@@ -815,11 +1038,16 @@ export const MentorApp: React.FC = () => {
                 onRun={handleRun}
                 onSubmit={handleSubmit}
                 onBack={() => setView("classroom")}
+                onSaveFeedback={handleSaveFeedback}
+                failedAttempts={failedAttempts}
+                hint={hint}
+                hintLoading={hintLoading}
+                onGetHint={handleGetHint}
+                onDismissHint={() => setHint(null)}
               />
             )}
           </div>
         </div>
-      )}
       {showCreateModal && (
         <CreateAssignmentModal
           onConfirm={handleCreateAssignmentConfirm}
@@ -827,87 +1055,119 @@ export const MentorApp: React.FC = () => {
         />
       )}
 
-      {view !== "login" && (
-        <footer className="h-7 border-t border-slate-800 bg-slate-950/95 text-[10px] text-slate-500 px-4 flex items-center justify-between">
-          <span>
-            Python Sandbox{" "}
-            <span className="text-slate-400">|</span>{" "}
-            <span className="text-slate-400">
-              {user?.role === "teacher" ? "Teacher Mode" : "Student Mode"}
-            </span>
-          </span>
-          <span className="hidden sm:inline">
-            Backend: <span className="text-slate-300">{health}</span>
-          </span>
-        </footer>
+      {showCreateGroupModal && (
+        <SimpleInputModal
+          title="New Group"
+          placeholder="e.g. Python Basics — Spring 2026"
+          confirmLabel="Create Group"
+          onConfirm={handleCreateGroupConfirm}
+          onCancel={() => setShowCreateGroupModal(false)}
+        />
       )}
-    </div>
-  );
-};
 
-interface LoginViewProps {
-  loading: boolean;
-  onLogin: (email: string, name: string, role: string) => void;
-}
+      {showJoinGroupModal && (
+        <SimpleInputModal
+          title="Join Group"
+          placeholder="Enter invite code"
+          confirmLabel="Join"
+          onConfirm={handleJoinGroupConfirm}
+          onCancel={() => setShowJoinGroupModal(false)}
+        />
+      )}
 
-const LoginView: React.FC<LoginViewProps> = ({ loading, onLogin }) => {
-  const [email, setEmail] = useState("teacher@example.com");
-  const [name, setName] = useState("Teacher");
-  const [role, setRole] = useState<"teacher" | "student">("teacher");
+      {showCreateClassroomModal && (
+        <SimpleInputModal
+          title="New Classroom"
+          placeholder="e.g. Introduction to OOP"
+          confirmLabel="Create Classroom"
+          onConfirm={handleCreateClassroomConfirm}
+          onCancel={() => setShowCreateClassroomModal(null)}
+        />
+      )}
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onLogin(email.trim(), name.trim(), role);
-  };
+      {showAddFileModal && (
+        <SimpleInputModal
+          title="New File"
+          placeholder="filename.py"
+          defaultValue={`file${files.length + 1}.py`}
+          confirmLabel="Add File"
+          onConfirm={handleAddFileConfirm}
+          onCancel={() => setShowAddFileModal(false)}
+        />
+      )}
 
-  return (
-    <div className="flex-1 flex items-center justify-center">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm border border-slate-800 bg-slate-900 rounded-md px-6 py-6 space-y-4 text-sm"
-      >
-        <h1 className="text-lg font-semibold">Dev Login</h1>
-        <p className="text-xs text-slate-500">
-          Use this form for local testing. Authentication is backed by the FastAPI
-          dev-login endpoint.
-        </p>
-        <div className="space-y-1">
-          <label className="block text-xs text-slate-400">Email</label>
-          <input
-            type="email"
-            className="w-full rounded-md bg-slate-950 border border-slate-800 px-2 py-1 text-sm text-slate-200"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+      {showAdminPanel && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-end">
+          <div className="h-full w-full max-w-md bg-slate-900 border-l border-slate-700 flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-amber-400" />
+                <h2 className="text-sm font-semibold text-slate-100">User Management</h2>
+              </div>
+              <button
+                onClick={() => setShowAdminPanel(false)}
+                className="text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {adminLoading ? (
+                <div className="flex items-center justify-center h-32 text-sm text-slate-500">
+                  <span className="h-4 w-4 rounded-full border-2 border-sky-400 border-t-transparent animate-spin mr-2" />
+                  Loading users…
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-800">
+                  {adminUsers.map((u) => (
+                    <div key={u.id} className="flex items-center justify-between px-5 py-3">
+                      <div className="min-w-0">
+                        <div className="text-sm text-slate-200 font-medium truncate">{u.name}</div>
+                        <div className="text-xs text-slate-500 truncate">{u.email}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono ${
+                          u.role === "teacher"
+                            ? "text-sky-400 border-sky-500/30 bg-sky-500/10"
+                            : "text-slate-400 border-slate-700 bg-slate-800/50"
+                        }`}>
+                          {u.role}
+                        </span>
+                        {u.email !== "madiyar.zmm@gmail.com" && (
+                          <button
+                            onClick={() => handleToggleRole(u.id, u.role)}
+                            className="text-[10px] px-2 py-1 border border-slate-700 rounded bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                          >
+                            {u.role === "teacher" ? "→ Student" : "→ Teacher"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {adminUsers.length === 0 && (
+                    <div className="px-5 py-8 text-center text-xs text-slate-500">No users found.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="block text-xs text-slate-400">Name</label>
-          <input
-            type="text"
-            className="w-full rounded-md bg-slate-950 border border-slate-800 px-2 py-1 text-sm text-slate-200"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs text-slate-400">Role</label>
-          <select
-            className="w-full rounded-md bg-slate-950 border border-slate-800 px-2 py-1 text-sm text-slate-200"
-            value={role}
-            onChange={(e) => setRole(e.target.value as "teacher" | "student")}
-          >
-            <option value="teacher">Teacher</option>
-            <option value="student">Student</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-sky-500 text-slate-950 text-sm py-1.5 disabled:opacity-60"
-        >
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+      )}
+
+      <Confetti active={showConfetti} onDone={() => setShowConfetti(false)} />
+
+      <footer className="h-7 border-t border-slate-800 bg-slate-950/95 text-[10px] text-slate-500 px-4 flex items-center justify-between">
+        <span>
+          Python Sandbox{" "}
+          <span className="text-slate-400">|</span>{" "}
+          <span className="text-slate-400">
+            {effectiveRole === "teacher" ? "Teacher Mode" : "Student Mode"}
+          </span>
+        </span>
+        <span className="hidden sm:inline">
+          Backend: <span className="text-slate-300">{health}</span>
+        </span>
+      </footer>
     </div>
   );
 };
@@ -974,6 +1234,11 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
             : null;
           const late = mySub ? isSubmittedLate(mySub.submitted_at, a.due_at) : false;
 
+          const totalMembers = classroom.member_count ? Math.max(1, classroom.member_count - 1) : null; // exclude teacher
+          const pct = isHw && totalMembers && submittedCount > 0
+            ? Math.round((submittedCount / totalMembers) * 100)
+            : null;
+
           return (
             <div
               key={a.id}
@@ -993,9 +1258,27 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
                   )}
                   <span className="font-medium text-slate-100 text-sm truncate">{a.title}</span>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Teacher: submission count */}
-                  {userRole === "teacher" && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Teacher: progress ring + count */}
+                  {userRole === "teacher" && pct !== null && (
+                    <div className="flex items-center gap-1.5">
+                      <svg className="h-5 w-5 -rotate-90" viewBox="0 0 20 20">
+                        <circle cx="10" cy="10" r="8" fill="none" stroke="rgb(51,65,85)" strokeWidth="2.5" />
+                        <circle
+                          cx="10" cy="10" r="8" fill="none"
+                          stroke={pct >= 100 ? "rgb(52,211,153)" : "rgb(99,102,241)"}
+                          strokeWidth="2.5"
+                          strokeDasharray={`${2 * Math.PI * 8}`}
+                          strokeDashoffset={`${2 * Math.PI * 8 * (1 - pct / 100)}`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span className={`text-[10px] font-mono ${pct >= 100 ? "text-emerald-400" : "text-slate-400"}`}>
+                        {submittedCount} submitted
+                      </span>
+                    </div>
+                  )}
+                  {userRole === "teacher" && pct === null && (
                     <span className={`px-1.5 py-0.5 text-[10px] rounded-full border font-mono ${
                       submittedCount > 0
                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-600/40"
@@ -1071,6 +1354,12 @@ interface AssignmentViewProps {
   onRun: () => void;
   onSubmit: () => void;
   onBack: () => void;
+  onSaveFeedback: (submissionId: string, feedback: string) => Promise<void>;
+  failedAttempts: number;
+  hint: string | null;
+  hintLoading: boolean;
+  onGetHint: () => void;
+  onDismissHint: () => void;
 }
 
 const AssignmentView: React.FC<AssignmentViewProps> = ({
@@ -1097,10 +1386,24 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   onRun,
   onSubmit,
   onBack,
+  onSaveFeedback,
+  failedAttempts,
+  hint,
+  hintLoading,
+  onGetHint,
+  onDismissHint,
 }) => {
   const [detailExpanded, setDetailExpanded] = useState(false);
   const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
+  const [feedbackDraft, setFeedbackDraft] = useState<string>("");
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
   const isSuccess = selectedSubmission?.status === "success";
+
+  // Sync feedback draft when selected submission changes
+  React.useEffect(() => {
+    setFeedbackDraft(selectedSubmission?.feedback || "");
+  }, [selectedSubmission?.id]);
 
   // Homework roster logic (teacher only)
   const isHomework = !!assignment.due_at;
@@ -1115,6 +1418,15 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
       }).sort((a: any, b: any) => Number(b.submitted) - Number(a.submitted))
     : [];
   const submittedCount = rosterRows.filter((r: any) => r.submitted).length;
+
+  // First to solve (first accepted submission by submitted_at)
+  const firstSolverId = React.useMemo(() => {
+    const accepted = submissions.filter((s: any) => s.status === "success");
+    if (!accepted.length) return null;
+    return accepted.reduce((a: any, b: any) =>
+      new Date(a.submitted_at) < new Date(b.submitted_at) ? a : b
+    ).user_id;
+  }, [submissions]);
 
   // Deadline banner values (student only)
   const mySub = userRole === "student"
@@ -1272,8 +1584,59 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               >
                 {isHomework ? "Submit Homework" : "Submit"}
               </button>
+              {userRole === "student" && (
+                <button
+                  type="button"
+                  onClick={() => setHandRaised((v) => !v)}
+                  title={handRaised ? "Lower hand" : "Raise hand — ask teacher for help"}
+                  className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border transition-all ${
+                    handRaised
+                      ? "border-amber-500/60 bg-amber-500/15 text-amber-300 animate-pulse"
+                      : "border-slate-700 bg-slate-950 text-slate-500 hover:text-amber-400 hover:border-amber-500/40"
+                  }`}
+                >
+                  <Hand className="h-3 w-3" />
+                  <span>{handRaised ? "Hand raised" : "Ask for help"}</span>
+                </button>
+              )}
             </div>
           )}
+          {/* Hint panel — visible to students after 3 failed attempts */}
+          {userRole === "student" && failedAttempts >= 3 && (
+            <div className="border-t border-amber-800/40 bg-amber-950/30 px-4 py-2.5">
+              {hint ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wide">💡 Hint</span>
+                    <button
+                      type="button"
+                      onClick={onDismissHint}
+                      className="text-[10px] text-slate-500 hover:text-slate-300"
+                    >
+                      dismiss
+                    </button>
+                  </div>
+                  <p className="text-xs text-amber-200/90 leading-relaxed">{hint}</p>
+                  <p className="text-[10px] text-amber-700">−5 XP used for this hint</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-amber-400/80">
+                    Stuck after {failedAttempts} attempts — need a nudge?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onGetHint}
+                    disabled={hintLoading}
+                    className="shrink-0 px-2.5 py-1 text-xs rounded border border-amber-600/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 disabled:opacity-60 transition-colors"
+                  >
+                    {hintLoading ? "Thinking…" : "Get a hint (−5 XP)"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="border-t border-slate-800 px-4 py-2 text-[11px] text-slate-400 flex items-center justify-between bg-slate-950/90">
             <span className="tracking-wide uppercase">Terminal</span>
             <button
@@ -1345,6 +1708,9 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-slate-200 truncate" title={row.name}>
                         {row.name || "Student"}
+                        {firstSolverId && row.sub?.user_id === firstSolverId && row.sub?.status === "success" && (
+                          <span title="First to solve!" className="ml-1 text-[11px]">👑</span>
+                        )}
                       </span>
                       {row.submitted ? (
                         <span className={`shrink-0 px-1.5 py-0.5 text-[10px] rounded border font-medium ${
@@ -1402,6 +1768,9 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                       >
                         {s.submitter_name || "Unknown"}
                       </span>
+                      {firstSolverId === s.user_id && s.status === "success" && (
+                        <span title="First to solve!" className="text-[11px]">👑</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-0.5">
@@ -1461,7 +1830,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               {selectedSubmission.submitter_email && (
                 <div className="text-xs text-slate-500">{selectedSubmission.submitter_email}</div>
               )}
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <span
                   className={`inline-block px-2 py-0.5 text-xs font-mono rounded ${
                     isSuccess
@@ -1471,6 +1840,15 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 >
                   {selectedSubmission.status_display || selectedSubmission.status}
                 </span>
+                {selectedSubmission.test_passed !== null && selectedSubmission.test_passed !== undefined && (
+                  <span className={`inline-block px-2 py-0.5 text-xs font-mono rounded border ${
+                    selectedSubmission.test_passed
+                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40"
+                      : "bg-red-500/15 text-red-400 border-red-500/40"
+                  }`}>
+                    {selectedSubmission.test_passed ? "Tests ✓" : "Tests ✗"}
+                  </span>
+                )}
               </div>
               {selectedSubmission.error_summary && (
                 <p className="mt-2 text-xs text-red-400 border border-red-500/30 bg-red-500/10 rounded px-2 py-1.5">
@@ -1484,6 +1862,40 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             <pre className="flex-1 overflow-auto font-mono text-xs text-slate-300 px-3 py-2 m-0 whitespace-pre-wrap break-words">
               {selectedSubmission.code || ""}
             </pre>
+            {/* Feedback section */}
+            <div className="border-t border-slate-800 px-3 py-2">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5">
+                Mentor Feedback
+              </div>
+              {userRole === "teacher" ? (
+                <div className="space-y-1.5">
+                  <textarea
+                    value={feedbackDraft}
+                    onChange={(e) => setFeedbackDraft(e.target.value)}
+                    rows={3}
+                    placeholder="Add feedback for the student…"
+                    className="w-full rounded-md bg-slate-900 border border-slate-700 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-sky-500/60 resize-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={feedbackSaving}
+                    onClick={async () => {
+                      setFeedbackSaving(true);
+                      try { await onSaveFeedback(selectedSubmission.id, feedbackDraft); } finally { setFeedbackSaving(false); }
+                    }}
+                    className="px-2.5 py-1 text-xs rounded bg-sky-500/20 border border-sky-500/40 text-sky-300 hover:bg-sky-500/30 disabled:opacity-50 transition-colors"
+                  >
+                    {feedbackSaving ? "Saving…" : "Save Feedback"}
+                  </button>
+                </div>
+              ) : selectedSubmission.feedback ? (
+                <div className="text-xs text-slate-300 bg-indigo-950/40 border border-indigo-700/40 rounded px-2 py-1.5 whitespace-pre-wrap">
+                  {selectedSubmission.feedback}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-600 italic">No feedback yet.</div>
+              )}
+            </div>
           </div>
         )}
       </div>

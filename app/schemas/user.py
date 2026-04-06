@@ -46,3 +46,14 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
+class UserRoleUpdate(BaseModel):
+    """
+    Request body for updating a user's role. Admin-only.
+    """
+
+    role: str
+
+    class Config:
+        json_schema_extra = {"example": {"role": "teacher"}}
+

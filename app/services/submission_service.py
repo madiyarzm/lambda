@@ -126,11 +126,20 @@ def create_submission(
     ensure_user_can_access_classroom(classroom, user, db)
 
     sandbox_result = run_code(code)
-    result_json = {
+    result_json: dict = {
         "stdout": sandbox_result.stdout or "",
         "stderr": sandbox_result.stderr or "",
         **(sandbox_result.result_json or {}),
     }
+
+    # Auto-grading: if the assignment has test_code, run it appended to student code.
+    if assignment.test_code and assignment.test_code.strip():
+        combined = code + "\n\n# === auto-grader ===\n" + assignment.test_code
+        test_result = run_code(combined)
+        result_json["test_passed"] = test_result.status == "success"
+        result_json["test_output"] = (test_result.stdout or "") + (test_result.stderr or "")
+    else:
+        result_json["test_passed"] = None
 
     submission = Submission(
         assignment_id=assignment.id,

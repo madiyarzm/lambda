@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+**/__pycache__
+**/*.pyc
+.env
+*.env
+frontend-vite/node_modules
+frontend-vite/dist
+tests/
+docs/
+cursor/
+plots.py
+*.md

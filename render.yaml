@@ -1,0 +1,38 @@
+# Render Infrastructure-as-Code
+# Docs: https://render.com/docs/infrastructure-as-code
+#
+# Database: Render killed free Postgres. Use Supabase (free forever):
+#   1. supabase.com → New project → Settings → Database → copy "URI"
+#   2. Paste it as DATABASE_URL in Render dashboard → lambda-app → Environment
+#
+# Other secrets to set manually in Render dashboard:
+#   DATABASE_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ANTHROPIC_API_KEY
+#
+# Deploy hook: Render dashboard → lambda-app → Settings → Deploy Hook URL
+#   → add as RENDER_DEPLOY_HOOK secret in GitHub repo Settings → Secrets
+
+services:
+  - type: web
+    name: lambda-app
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_URL
+        # Replace with your actual Render URL shown after first deploy
+        value: https://lambda-app.onrender.com
+      - key: DATABASE_URL
+        sync: false   # set manually from Supabase
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SANDBOX_USE_DOCKER
+        value: "false"

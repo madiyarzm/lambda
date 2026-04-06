@@ -66,3 +66,23 @@ def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_admin(
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> User:
+    """
+    Dependency that restricts access to the admin account only.
+
+    Raises HTTP 403 if the current user is not the admin.
+    """
+    if current_user.email != settings.admin_email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
+RequireAdmin = Annotated[User, Depends(require_admin)]

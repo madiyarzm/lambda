@@ -9,8 +9,8 @@ All endpoints issue a JWT that can be used as a Bearer token on protected routes
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -60,50 +60,44 @@ async def auth_google(request: Request, settings: Settings = Depends(get_setting
     return response
 
 
-@router.get("/callback", response_model=TokenResponse, name="auth_callback")
+@router.get("/callback", name="auth_callback")
 async def auth_callback(
     request: Request,
     db: DBSession,
     settings: Settings = Depends(get_settings),
-) -> TokenResponse:
+) -> RedirectResponse:
     """
-    Handle Google's OAuth callback: exchange code for tokens, fetch user info, and issue JWT.
-
-    Returns:
-        TokenResponse with access_token to be used as Bearer token.
+    Handle Google's OAuth callback: exchange code for tokens, fetch user info, issue JWT,
+    then redirect back to the frontend with the token in the query string.
     """
 
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     cookie_state = request.cookies.get("oauth_state")
 
+    frontend_error_url = f"{settings.frontend_url}/auth/callback?error=auth_failed"
+
     if not code:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing authorization code")
+        return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
 
     if not state or not cookie_state or state != cookie_state:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
+        return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
 
     redirect_uri = str(request.url_for("auth_callback"))
     try:
         token_data = await exchange_code_for_tokens(settings=settings, code=code, redirect_uri=redirect_uri)
         access_token = token_data.get("access_token")
         if not access_token:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Google did not return an access token",
-            )
+            return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
         profile = await fetch_google_userinfo(access_token=access_token)
-    except HTTPException:
-        raise
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to communicate with Google OAuth endpoints",
-        )
+        return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
 
     user = get_or_create_google_user(db, profile=profile)
     jwt_token = create_access_token(data={"sub": str(user.id), "email": user.email, "role": user.role}, settings=settings)
-    return TokenResponse(access_token=jwt_token)
+
+    frontend_success_url = f"{settings.frontend_url}/auth/callback?token={jwt_token}"
+    return RedirectResponse(url=frontend_success_url, status_code=status.HTTP_302_FOUND)
 
 
 @router.post("/dev-login", response_model=TokenResponse)

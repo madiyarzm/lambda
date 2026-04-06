@@ -47,6 +47,10 @@ class Settings(BaseSettings):
         default="http://localhost:5173",
         description="Frontend origin for CORS and redirects.",
     )
+    admin_email: str = Field(
+        default="madiyar.zmm@gmail.com",
+        description="Email of the admin/owner account. Auto-assigned teacher role on first login.",
+    )
 
     # Sandbox: real code execution (subprocess by default; Docker optional)
     sandbox_timeout_seconds: int = Field(
