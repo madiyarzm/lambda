@@ -81,7 +81,11 @@ def create_app() -> FastAPI:
     # WebSocket collaboration endpoint (not versioned; used by Yjs clients).
     app.include_router(ws_collab.router)
 
-    # Serve frontend static files in development; API routes take precedence.
+    @app.get("/health", tags=["health"])
+    def health() -> dict[str, str]:
+        return {"status": "ok", "service": "lambda"}
+
+    # Serve frontend static files; must come AFTER all routes so Mount("/") doesn't shadow them.
     if FRONTEND_DIR.exists():
         app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
@@ -89,14 +93,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
-
-@app.get("/health", tags=["health"])
-def health() -> dict[str, str]:
-    """
-    Health check for load balancers and frontend.
-
-    Returns:
-        status and app version.
-    """
-    return {"status": "ok", "service": "lambda"}
