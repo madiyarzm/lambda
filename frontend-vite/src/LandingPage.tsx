@@ -1,5 +1,5 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ContainerScroll } from "./components/ui/container-scroll-animation";
 import {
   Terminal,
@@ -10,10 +10,18 @@ import {
   ChevronDown,
   Zap,
   Shield,
-  ArrowRight,
 } from "lucide-react";
+import { googleLogin, isLoggedIn } from "./lib/api";
 
 export const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoggedIn()) {
+      navigate("/app", { replace: true });
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans overflow-x-hidden">
       {/* Nav */}
@@ -36,18 +44,18 @@ export const LandingPage: React.FC = () => {
             <a href="#" className="hover:text-slate-200 transition-colors">Docs</a>
           </nav>
           <div className="flex items-center gap-2 text-xs">
-            <Link
-              to="/app"
+            <button
+              onClick={googleLogin}
               className="px-3 py-1.5 border border-slate-700 rounded-md bg-transparent hover:bg-slate-900 transition-colors text-slate-300"
             >
               Sign In
-            </Link>
-            <Link
-              to="/app"
+            </button>
+            <button
+              onClick={googleLogin}
               className="px-3 py-1.5 rounded-md bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-medium hover:from-sky-400 hover:to-indigo-400 transition-all shadow-[0_0_16px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)]"
             >
-              Start Mentoring
-            </Link>
+              Get Started
+            </button>
           </div>
         </div>
       </header>
@@ -95,19 +103,7 @@ export const LandingPage: React.FC = () => {
 
                   {/* CTAs */}
                   <div className="flex items-center justify-center gap-3 pt-2">
-                    <Link
-                      to="/app"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 text-white text-sm font-medium shadow-[0_0_24px_rgba(56,189,248,0.4)] hover:shadow-[0_0_32px_rgba(56,189,248,0.6)] hover:from-sky-400 hover:to-indigo-400 transition-all"
-                    >
-                      Open Classroom
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                    <Link
-                      to="/app"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-700 text-slate-300 text-sm hover:bg-slate-900 hover:border-slate-600 transition-all"
-                    >
-                      Watch Demo
-                    </Link>
+                    <GoogleSignInButton />
                   </div>
                 </div>
               }
@@ -253,13 +249,7 @@ export const LandingPage: React.FC = () => {
                 <p className="text-sm text-slate-400 max-w-sm mx-auto">
                   No installs. No config. Just open a browser and teach.
                 </p>
-                <Link
-                  to="/app"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 text-white text-sm font-medium shadow-[0_0_24px_rgba(56,189,248,0.4)] hover:shadow-[0_0_36px_rgba(56,189,248,0.6)] hover:from-sky-400 hover:to-indigo-400 transition-all"
-                >
-                  Open Classroom
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                <GoogleSignInButton />
               </div>
             </div>
           </div>
@@ -272,18 +262,33 @@ export const LandingPage: React.FC = () => {
             <div className="h-5 w-5 rounded bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white font-mono font-bold text-[10px]">
               λ
             </div>
-            <span>© Lambda 2024</span>
+            <span>© Lambda 2026</span>
           </div>
           <div className="flex gap-5">
             <button className="hover:text-sky-400 transition-colors">Documentation</button>
             <button className="hover:text-sky-400 transition-colors">Manifesto</button>
-            <Link to="/app" className="hover:text-sky-400 transition-colors">Login</Link>
+            <button onClick={googleLogin} className="hover:text-sky-400 transition-colors">Login</button>
           </div>
         </div>
       </footer>
     </div>
   );
 };
+
+const GoogleSignInButton: React.FC = () => (
+  <button
+    onClick={googleLogin}
+    className="inline-flex items-center gap-3 px-5 py-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 text-sm font-medium hover:bg-slate-800 hover:border-slate-600 transition-all"
+  >
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    </svg>
+    Sign in with Google
+  </button>
+);
 
 interface FeatureCardProps {
   number: string;
