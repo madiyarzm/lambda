@@ -33,9 +33,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     environments, migrations should be applied via Alembic before startup.
     """
     settings = get_settings()
-    if settings.app_env == "development":
-        # Development-only safety: ensure schema exists without manual migration.
-        init_db()
+    # Always ensure schema exists (create_all is safe to run on every startup).
+    init_db()
     # Remove submissions older than retention window so DB does not grow unbounded.
     db = SessionLocal()
     try:
