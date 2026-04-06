@@ -27,24 +27,30 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
-    Application lifespan hook.
-
-    In development we auto-create tables to simplify onboarding. In production
-    environments, migrations should be applied via Alembic before startup.
+    Application lifespan hook. DB work runs in background so health check passes immediately.
     """
-    settings = get_settings()
-    # Always ensure schema exists (create_all is safe to run on every startup).
-    init_db()
-    # Remove submissions older than retention window so DB does not grow unbounded.
-    db = SessionLocal()
-    try:
-        deleted = delete_expired_submissions(db, retention_days=settings.submission_retention_days)
-        if deleted:
-            pass  # Optional: log deleted count
-    finally:
-        db.close()
+    import asyncio
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    async def _startup() -> None:
+        settings = get_settings()
+        try:
+            init_db()
+        except Exception as exc:
+            logger.error("init_db failed: %s", exc)
+            return
+        db = SessionLocal()
+        try:
+            delete_expired_submissions(db, retention_days=settings.submission_retention_days)
+        except Exception as exc:
+            logger.error("delete_expired_submissions failed: %s", exc)
+        finally:
+            db.close()
+
+    asyncio.create_task(_startup())
     yield
-    # Teardown: close pools etc. if needed later
 
 
 def create_app() -> FastAPI:
