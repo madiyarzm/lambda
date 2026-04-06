@@ -57,10 +57,10 @@ def run_code(
     executor = _get_executor(settings)
     result = executor.run(code, timeout_seconds=settings.sandbox_timeout_seconds)
 
-    # Hide low-level Docker errors from students; show a generic message instead.
-    if settings.sandbox_use_docker and result.status == "error":
+    # Hide low-level infrastructure errors from students.
+    if result.status == "error":
         err_lower = (result.stderr or "").lower()
-        if "docker" in err_lower and "sock" in err_lower:
+        if "docker" in err_lower or "infrastructure_error" in str(result.result_json or ""):
             result.stderr = "Execution environment is temporarily unavailable. Please try again later or contact your mentor."
             if result.result_json is None:
                 result.result_json = {}

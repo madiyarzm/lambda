@@ -23,6 +23,9 @@ COPY --from=frontend-builder /build/frontend-vite/dist ./frontend
 
 EXPOSE 8000
 
+# Subprocess sandbox — no Docker daemon available inside Render containers.
+ENV SANDBOX_USE_DOCKER=false
+
 # Run Alembic migrations then start the server.
 # Using shell form so we can chain commands.
 CMD uvicorn app.main:app --host 0.0.0.0 --port 8000
