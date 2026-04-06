@@ -25,5 +25,4 @@ EXPOSE 8000
 
 # Run Alembic migrations then start the server.
 # Using shell form so we can chain commands.
-CMD alembic upgrade head && \
-    uvicorn app.main:app --host 0.0.0.0 --port 8000
+CMD uvicorn app.main:app --host 0.0.0.0 --port 8000
