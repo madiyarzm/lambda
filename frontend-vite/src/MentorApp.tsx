@@ -433,7 +433,7 @@ export const MentorApp: React.FC = () => {
         const subs = await listSubmissions(currentAssignment.id);
         setSubmissions(subs || []);
         // Keep selectedSubmission in sync so feedback edits don't go stale.
-        setSelectedSubmission((prev) =>
+        setSelectedSubmission((prev: any) =>
           prev ? (subs || []).find((s: any) => s.id === prev.id) ?? prev : null,
         );
       } catch {
