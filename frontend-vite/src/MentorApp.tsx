@@ -432,6 +432,10 @@ export const MentorApp: React.FC = () => {
       try {
         const subs = await listSubmissions(currentAssignment.id);
         setSubmissions(subs || []);
+        // Keep selectedSubmission in sync so feedback edits don't go stale.
+        setSelectedSubmission((prev) =>
+          prev ? (subs || []).find((s: any) => s.id === prev.id) ?? prev : null,
+        );
       } catch {
         // silently ignore — user still has stale data
       }
@@ -1559,7 +1563,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             )}
           </div>
           <div className="flex-1 min-h-0 border-t border-slate-800 bg-slate-950 rounded-b-lg overflow-hidden">
-            {editorMode === "code" ? (
+            {/* Keep both mounted so WebSocket stays alive across mode switches */}
+            <div className={editorMode === "code" ? "h-full" : "hidden"}>
               <CodeEditor
                 key={activeFileId || "single-file"}
                 value={code}
@@ -1570,14 +1575,15 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 handRaised={handRaised}
                 className="bg-slate-950"
               />
-            ) : (
+            </div>
+            <div className={editorMode === "draw" ? "h-full" : "hidden"}>
               <DrawingCanvas
                 roomId={drawingRoomId}
                 userName={userName}
                 userRole={userRole}
                 className="h-full"
               />
-            )}
+            </div>
           </div>
           {editorMode === "code" && (
             <div className="px-4 py-2 flex items-center gap-2 border-t border-slate-800">
