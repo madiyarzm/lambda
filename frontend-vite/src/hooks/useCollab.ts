@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Y from "yjs";
 import {
   Awareness,
@@ -11,6 +11,7 @@ export type PeerInfo = {
   name: string;
   color: string;
   isSelf: boolean;
+  handRaised?: boolean;
 };
 
 const TEACHER_COLOR = "#22c55e"; // green-500
@@ -46,9 +47,10 @@ export function useCollab(
   initialValue?: string,
   userName?: string,
   userRole?: string,
-): { awareness: Awareness | null; peers: PeerInfo[] } {
+): { awareness: Awareness | null; peers: PeerInfo[]; setHandRaised: (raised: boolean) => void } {
   const [awareness, setAwareness] = useState<Awareness | null>(null);
   const [peers, setPeers] = useState<PeerInfo[]>([]);
+  const awarenessRef = useRef<Awareness | null>(null);
 
   useEffect(() => {
     const ytext = doc.getText("code");
@@ -63,6 +65,7 @@ export function useCollab(
     }
 
     const aw = new Awareness(doc);
+    awarenessRef.current = aw;
     setAwareness(aw);
 
     const isTeacher = userRole === "teacher";
@@ -93,6 +96,7 @@ export function useCollab(
             name: u.name || "Peer",
             color: u.color || "#888",
             isSelf: false,
+            handRaised: !!state.handRaised,
           });
         }
       });
@@ -104,7 +108,7 @@ export function useCollab(
 
     let awarenessTimer: ReturnType<typeof setTimeout> | null = null;
     const onAwarenessChange = () => {
-      if (awarenessTimer) return;
+      if (awarenessTimer) clearTimeout(awarenessTimer);
       awarenessTimer = setTimeout(() => {
         awarenessTimer = null;
         setPeers(buildPeersList());
@@ -140,7 +144,7 @@ export function useCollab(
         if (socket.readyState === WebSocket.OPEN) {
           taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, [doc.clientID]));
         }
-      }, 15_000);
+      }, 10_000);
 
       setTimeout(() => {
         if (!receivedPeerState && ytext.length === 0 && initialValue) {
@@ -159,6 +163,13 @@ export function useCollab(
     ) => {
       if (socket.readyState !== WebSocket.OPEN) return;
       const changed = added.concat(updated, removed);
+      // When a new peer appears, also re-broadcast our own state so they see us.
+      // (The relay has no memory — late-joiners never see existing peers otherwise.)
+      if (added.length > 0 && !changed.includes(doc.clientID)) {
+        changed.push(doc.clientID);
+        // Also re-send full doc state so the late-joiner gets all edits so far.
+        taggedSend(TAG_DOC, Y.encodeStateAsUpdate(doc));
+      }
       taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, changed));
     };
 
@@ -198,5 +209,11 @@ export function useCollab(
     };
   }, [roomId, doc, initialValue, userName, userRole]);
 
-  return { awareness, peers };
+  const setHandRaised = (raised: boolean) => {
+    const aw = awarenessRef.current;
+    if (!aw) return;
+    aw.setLocalStateField("handRaised", raised);
+  };
+
+  return { awareness, peers, setHandRaised };
 }

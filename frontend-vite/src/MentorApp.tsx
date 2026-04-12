@@ -424,6 +424,21 @@ export const MentorApp: React.FC = () => {
     void init();
   }, []);
 
+  // Poll submissions every 5s while an assignment is open so teacher sees new
+  // submissions and students see feedback without needing a manual refresh.
+  useEffect(() => {
+    if (!currentAssignment) return;
+    const id = setInterval(async () => {
+      try {
+        const subs = await listSubmissions(currentAssignment.id);
+        setSubmissions(subs || []);
+      } catch {
+        // silently ignore — user still has stale data
+      }
+    }, 5_000);
+    return () => clearInterval(id);
+  }, [currentAssignment?.id]);
+
   const handleLogout = () => {
     logout();
     navigate("/", { replace: true });
@@ -1552,6 +1567,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 roomId={roomId}
                 userName={userName}
                 userRole={userRole}
+                handRaised={handRaised}
                 className="bg-slate-950"
               />
             ) : (

@@ -146,7 +146,9 @@ export function useCollabDrawing(
       removed: number[];
     }) => {
       if (added.length > 0 && socket.readyState === WebSocket.OPEN) {
+        // Re-send doc state AND our awareness so late-joiners see everything.
         taggedSend(TAG_DOC, Y.encodeStateAsUpdate(doc));
+        taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, [doc.clientID]));
       }
       const cursors: PeerCursor[] = [];
       aw.getStates().forEach((state, clientId) => {
@@ -163,10 +165,8 @@ export function useCollabDrawing(
     };
     aw.on("change", syncPeerCursors);
 
-    const isBackendSameOrigin = window.location.port === "8000";
-    const httpBase = isBackendSameOrigin
-      ? window.location.origin
-      : "http://127.0.0.1:8000";
+    const httpBase =
+      window.location.port === "5173" ? "http://localhost:8000" : window.location.origin;
     const wsBase = httpBase.replace(/^http/, "ws");
     const url = `${wsBase.replace(/\/$/, "")}/ws/collab/${encodeURIComponent(roomId)}`;
     const socket = new WebSocket(url);
@@ -189,7 +189,7 @@ export function useCollabDrawing(
         if (socket.readyState === WebSocket.OPEN) {
           taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, [doc.clientID]));
         }
-      }, 15_000);
+      }, 10_000);
     });
 
     const handleDocUpdate = (update: Uint8Array, origin: unknown) => {
@@ -201,7 +201,12 @@ export function useCollabDrawing(
       added, updated, removed,
     }: { added: number[]; updated: number[]; removed: number[] }) => {
       if (socket.readyState !== WebSocket.OPEN) return;
-      taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, added.concat(updated, removed)));
+      const changed = added.concat(updated, removed);
+      // When a new peer appears, also re-broadcast our own state so they see us.
+      if (added.length > 0 && !changed.includes(doc.clientID)) {
+        changed.push(doc.clientID);
+      }
+      taggedSend(TAG_AWARENESS, encodeAwarenessUpdate(aw, changed));
     };
 
     const handleMessage = (event: MessageEvent) => {

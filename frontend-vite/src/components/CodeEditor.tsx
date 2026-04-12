@@ -15,7 +15,7 @@ import {
 } from "@codemirror/autocomplete";
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
-import { useCollab } from "../hooks/useCollab";
+import { useCollab, PeerInfo } from "../hooks/useCollab";
 
 interface CodeEditorProps {
   value: string;
@@ -24,6 +24,8 @@ interface CodeEditorProps {
   roomId?: string;
   userName?: string;
   userRole?: string;
+  handRaised?: boolean;
+  onPeersChange?: (peers: PeerInfo[]) => void;
 }
 
 const PYTHON_SNIPPETS = [
@@ -42,6 +44,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   roomId,
   userName,
   userRole,
+  handRaised,
+  onPeersChange,
 }) => {
   const ydocRef = useRef<Y.Doc | null>(null);
   if (!ydocRef.current) {
@@ -50,7 +54,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const ydoc = ydocRef.current;
   const ytext = useMemo(() => ydoc.getText("code"), [ydoc]);
 
-  const { awareness, peers } = useCollab(roomId, ydoc, value, userName, userRole);
+  const { awareness, peers, setHandRaised } = useCollab(roomId, ydoc, value, userName, userRole);
+
+  const onPeersChangeRef = useRef(onPeersChange);
+  useEffect(() => { onPeersChangeRef.current = onPeersChange; }, [onPeersChange]);
+  useEffect(() => { onPeersChangeRef.current?.(peers); }, [peers]);
+
+  useEffect(() => { setHandRaised(!!handRaised); }, [handRaised, setHandRaised]);
 
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -96,6 +106,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               style={{ backgroundColor: p.color }}
             />
             {p.name}
+            {p.handRaised && <span title="Hand raised">✋</span>}
           </span>
         ))}
       </div>
