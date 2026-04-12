@@ -15,7 +15,8 @@ import {
 } from "@codemirror/autocomplete";
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
-import { useCollab, PeerInfo } from "../hooks/useCollab";
+import { useCollab } from "../hooks/useCollab";
+import type { PeerInfo } from "../hooks/useCollab";
 
 interface CodeEditorProps {
   value: string;
