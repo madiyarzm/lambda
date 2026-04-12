@@ -11,6 +11,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
@@ -85,9 +86,19 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok", "service": "lambda"}
 
-    # Serve frontend static files; must come AFTER all routes so Mount("/") doesn't shadow them.
+    # Serve frontend static files.
+    # Assets (JS/CSS/images) are served directly; all other paths fall back to
+    # index.html so that React Router (BrowserRouter) handles client-side navigation.
     if FRONTEND_DIR.exists():
-        app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+        app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str) -> FileResponse:
+            # Serve real files (favicon, manifest, etc.) if they exist.
+            candidate = FRONTEND_DIR / full_path
+            if candidate.exists() and candidate.is_file():
+                return FileResponse(str(candidate))
+            return FileResponse(str(FRONTEND_DIR / "index.html"))
 
     return app
 
