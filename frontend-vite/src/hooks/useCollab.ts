@@ -112,10 +112,8 @@ export function useCollab(
     };
     aw.on("change", onAwarenessChange);
 
-    const isBackendSameOrigin = window.location.port === "8000";
-    const httpBase = isBackendSameOrigin
-      ? window.location.origin
-      : "http://localhost:8000";
+    const httpBase =
+      window.location.port === "5173" ? "http://localhost:8000" : window.location.origin;
     const wsBase = httpBase.replace(/^http/, "ws");
     const url = `${wsBase.replace(/\/$/, "")}/ws/collab/${encodeURIComponent(roomId)}`;
     const socket = new WebSocket(url);

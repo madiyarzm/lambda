@@ -8,7 +8,7 @@
 // In local dev, Vite runs on :5173 so we point to the backend on :8000.
 const API_BASE: string =
   (import.meta.env.VITE_API_URL as string | undefined) ??
-  (window.location.port === "8000" ? "" : "http://localhost:8000");
+  (window.location.port === "5173" ? "http://localhost:8000" : "");
 
 function getToken(): string | null {
   return window.localStorage.getItem("lambda_token");
