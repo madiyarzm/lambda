@@ -204,15 +204,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   // Space key: toggle pan mode
   useEffect(() => {
+    const isTypingTarget = (t: EventTarget | null) => {
+      if (!t || !(t instanceof Element)) return false;
+      const tag = (t as HTMLElement).tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || (t as HTMLElement).isContentEditable;
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !e.repeat) {
+      if (e.code === "Space" && !e.repeat && !isTypingTarget(e.target)) {
         e.preventDefault();
         spaceDownRef.current = true;
         setIsPanMode(true);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+      if (e.code === "Space" && !isTypingTarget(e.target)) {
         spaceDownRef.current = false;
         panStartRef.current = null;
         setIsPanMode(false);
