@@ -198,6 +198,6 @@ export async function createSubmission(
 
 // --- Sandbox ---
 
-export async function runSandbox(code: string): Promise<any> {
-  return apiClient.post("/api/v1/sandbox/run", { code });
+export async function runSandbox(code: string, stdin = ""): Promise<any> {
+  return apiClient.post("/api/v1/sandbox/run", { code, stdin });
 }

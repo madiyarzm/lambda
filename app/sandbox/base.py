@@ -37,13 +37,14 @@ class SandboxExecutor(ABC):
     """
 
     @abstractmethod
-    def run(self, code: str, timeout_seconds: int | None = None) -> SandboxResult:
+    def run(self, code: str, timeout_seconds: int | None = None, stdin: str = "") -> SandboxResult:
         """
         Execute Python code in isolation.
 
         Args:
             code: Python source code to run.
             timeout_seconds: Override default execution timeout (optional).
+            stdin: Text to feed as standard input for input() calls.
 
         Returns:
             SandboxResult with status, stdout, stderr, and optional result_json.

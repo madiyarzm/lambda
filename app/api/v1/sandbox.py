@@ -26,7 +26,7 @@ def run_code_endpoint(
     Executes in a separate process with timeout and restricted builtins.
     Returns captured stdout, stderr, and status (success | timeout | error).
     """
-    result = run_code(payload.code)
+    result = run_code(payload.code, stdin=payload.stdin)
     return SandboxRunResponse(
         status=result.status,
         stdout=result.stdout,

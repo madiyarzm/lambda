@@ -31,6 +31,7 @@ def _get_executor(settings: Settings) -> SandboxExecutor:
 def run_code(
     code: str,
     settings: Settings | None = None,
+    stdin: str = "",
 ) -> SandboxResult:
     """
     Run user-provided Python code in the sandbox.
@@ -55,7 +56,7 @@ def run_code(
             result_json={"error": "code_too_large"},
         )
     executor = _get_executor(settings)
-    result = executor.run(code, timeout_seconds=settings.sandbox_timeout_seconds)
+    result = executor.run(code, timeout_seconds=settings.sandbox_timeout_seconds, stdin=stdin)
 
     # Hide low-level infrastructure errors from students.
     if result.status == "error":

@@ -13,10 +13,12 @@ class SandboxRunRequest(BaseModel):
     Payload for running code in the sandbox.
 
     Args:
-        code: Python source code to execute (not run in Phase 6 stub).
+        code: Python source code to execute.
+        stdin: Optional text to feed as standard input (for input() calls).
     """
 
     code: str
+    stdin: str = ""
 
 
 class SandboxRunResponse(BaseModel):

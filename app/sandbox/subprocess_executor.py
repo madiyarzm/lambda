@@ -49,9 +49,10 @@ def _safe_import(name, *args, **kwargs):
     return _orig_import(name, *args, **kwargs)
 
 # Build restricted builtins: remove open, exec, eval, compile, __import__; add safe __import__.
+# Keep input() — stdin is pre-supplied via the process's stdin pipe.
 _builtins = __builtins__ if isinstance(__builtins__, dict) else __builtins__.__dict__
 _safe = dict(_builtins)
-for _name in ("open", "input", "exec", "eval", "compile", "file", "__import__", "reload"):
+for _name in ("open", "exec", "eval", "compile", "file", "__import__", "reload"):
     _safe.pop(_name, None)
 _safe["__import__"] = _safe_import
 _safe["print"] = print  # keep print for output
@@ -84,7 +85,7 @@ class SubprocessSandboxExecutor(SandboxExecutor):
     filesystem access for user code (runner blocks open and unsafe imports).
     """
 
-    def run(self, code: str, timeout_seconds: int | None = None) -> SandboxResult:
+    def run(self, code: str, timeout_seconds: int | None = None, stdin: str = "") -> SandboxResult:
         """
         Execute code in a child process with timeout and safe builtins.
 
@@ -107,6 +108,7 @@ class SubprocessSandboxExecutor(SandboxExecutor):
                 proc = subprocess.run(
                     [os.environ.get("SANDBOX_PYTHON", "python3"), str(runner_path), str(code_path)],
                     cwd=str(tmp),
+                    input=stdin,
                     capture_output=True,
                     timeout=timeout,
                     text=True,

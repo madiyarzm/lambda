@@ -365,6 +365,7 @@ export const MentorApp: React.FC = () => {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [code, setCode] = useState<string>("");
   const [output, setOutput] = useState<string>("(Run or submit to see output)");
+  const [stdinInput, setStdinInput] = useState<string>("");
   const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -631,7 +632,7 @@ export const MentorApp: React.FC = () => {
       files.find((f) => f.id === activeFileId) || files[0] || null;
     const fileName = activeFile?.name || "main.py";
     try {
-      const res = await runSandbox(code);
+      const res = await runSandbox(code, stdinInput);
       const text =
         res?.stdout || res?.stderr || JSON.stringify(res?.result_json || {});
       setOutput(text);
@@ -1054,6 +1055,8 @@ export const MentorApp: React.FC = () => {
                 selectedSubmission={selectedSubmission}
                 onSelectSubmission={setSelectedSubmission}
                 loading={loading}
+                stdinInput={stdinInput}
+                onStdinChange={setStdinInput}
                 onRun={handleRun}
                 onSubmit={handleSubmit}
                 onBack={() => setView("classroom")}
@@ -1370,6 +1373,8 @@ interface AssignmentViewProps {
   selectedSubmission: any | null;
   onSelectSubmission: (s: any | null) => void;
   loading: boolean;
+  stdinInput: string;
+  onStdinChange: (v: string) => void;
   onRun: () => void;
   onSubmit: () => void;
   onBack: () => void;
@@ -1402,6 +1407,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   selectedSubmission,
   onSelectSubmission,
   loading,
+  stdinInput,
+  onStdinChange,
   onRun,
   onSubmit,
   onBack,
@@ -1586,7 +1593,18 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             </div>
           </div>
           {editorMode === "code" && (
-            <div className="px-4 py-2 flex items-center gap-2 border-t border-slate-800">
+            <div className="border-t border-slate-800">
+              <div className="px-4 py-1.5 flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-500 shrink-0">stdin:</span>
+                <input
+                  type="text"
+                  value={stdinInput}
+                  onChange={(e) => onStdinChange(e.target.value)}
+                  placeholder="Input for input() calls — separate multiple values with newlines"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-[11px] text-slate-300 placeholder:text-slate-700 focus:outline-none focus:border-slate-600"
+                />
+              </div>
+            <div className="px-4 py-2 flex items-center gap-2">
               <button
                 onClick={onRun}
                 disabled={loading}
@@ -1621,6 +1639,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   <span>{handRaised ? "Hand raised" : "Ask for help"}</span>
                 </button>
               )}
+            </div>
             </div>
           )}
           {/* Hint panel — visible to students after 3 failed attempts */}
