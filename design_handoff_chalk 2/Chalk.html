@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chalk — Collaborative Coding Classroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+  :root {
+    --bg:           oklch(0.990 0.007 265);
+    --bg-2:         oklch(0.966 0.013 265);
+    --bg-3:         oklch(0.940 0.019 265);
+    --border:       oklch(0.882 0.022 265);
+    --border-2:     oklch(0.820 0.030 265);
+    --text:         oklch(0.175 0.038 265);
+    --text-2:       oklch(0.420 0.055 265);
+    --text-3:       oklch(0.620 0.038 265);
+    --indigo:       oklch(0.520 0.260 265);
+    --indigo-hover: oklch(0.468 0.268 265);
+    --indigo-10:    oklch(0.960 0.048 265);
+    --indigo-20:    oklch(0.920 0.078 265);
+    --mint:         oklch(0.720 0.155 162);
+    --mint-10:      oklch(0.950 0.050 162);
+    --amber:        oklch(0.775 0.155 75);
+    --amber-10:     oklch(0.960 0.045 75);
+    --rose:         oklch(0.650 0.178 15);
+    --rose-10:      oklch(0.960 0.040 15);
+    --r:            10px;
+    --r-lg:         16px;
+    --r-xl:         24px;
+    --shadow-sm:    0 1px 4px oklch(0.52 0.26 265 / 0.06);
+    --shadow:       0 4px 16px oklch(0.52 0.26 265 / 0.10);
+    --shadow-lg:    0 12px 40px oklch(0.52 0.26 265 / 0.15);
+    --font:         'Plus Jakarta Sans', sans-serif;
+    --mono:         'DM Mono', monospace;
+  }
+
+  [data-theme="dark"] {
+    --bg:        oklch(0.130 0.038 265);
+    --bg-2:      oklch(0.168 0.048 265);
+    --bg-3:      oklch(0.210 0.055 265);
+    --border:    oklch(0.275 0.065 265);
+    --border-2:  oklch(0.340 0.075 265);
+    --text:      oklch(0.960 0.012 265);
+    --text-2:    oklch(0.720 0.038 265);
+    --text-3:    oklch(0.510 0.038 265);
+    --indigo-10: oklch(0.270 0.110 265);
+    --indigo-20: oklch(0.320 0.130 265);
+    --mint-10:   oklch(0.240 0.060 162);
+    --amber-10:  oklch(0.260 0.060 75);
+    --rose-10:   oklch(0.260 0.055 15);
+  }
+
+  /* ── Animations ─────────────────────────────────────────── */
+  @keyframes pulseDot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(0.85); }
+  }
+  @keyframes blink {
+    0%,100% { opacity: 1; } 50% { opacity: 0; }
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.35; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes orbFloat {
+    0%   { transform: translateY(0px) scale(1); }
+    100% { transform: translateY(-30px) scale(1.04); }
+  }
+  @keyframes scrollDot {
+    0%   { transform: translateY(0); opacity: 1; }
+    80%  { transform: translateY(12px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 0; }
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    85%  { opacity: 1; }
+    100% { transform: translateY(105vh) rotate(720deg) scale(0.5); opacity: 0; }
+  }
+  @keyframes popIn {
+    0%   { transform: translate(-50%, -40%) scale(0.6); opacity: 0; }
+    60%  { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  }
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ── Tweaks panel ───────────────────────────────────────── */
+  #tweaks-panel {
+    display: none;
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r-xl); padding: 20px 22px;
+    box-shadow: var(--shadow-lg); min-width: 248px;
+    animation: fadeIn 0.18s ease;
+  }
+  #tweaks-panel.open { display: block; }
+  .tw-label { font-size: 10px; font-weight: 700; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .tw-row { margin-bottom: 16px; }
+  .tw-row:last-child { margin-bottom: 0; }
+  .tw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tw-pill { padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); cursor: pointer; transition: all 0.12s; font-family: var(--font); }
+  .tw-pill.active { background: var(--indigo-10); color: var(--indigo); border-color: var(--indigo-20); }
+
+  /* ── Scrollbars ─────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="components.jsx" type="text/babel" data-presets="react"></script>
+<script src="landing.jsx"    type="text/babel" data-presets="react"></script>
+<script src="screens.jsx"    type="text/babel" data-presets="react"></script>
+<script src="editor.jsx"     type="text/babel" data-presets="react"></script>
+
+<script type="text/babel" data-presets="react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "editorRole": "student",
+  "heroVariant": 1,
+  "editorLayout": "3panel"
+}/*EDITMODE-END*/;
+
+function App() {
+  const saved = JSON.parse(localStorage.getItem('chalk-tweaks') || 'null') || {};
+  const [tweaks, setTweaks] = React.useState({ ...TWEAK_DEFAULTS, ...saved });
+  const [screen, setScreen] = React.useState(() => localStorage.getItem('chalk-screen') || 'landing');
+  const [role,   setRole]   = React.useState(() => localStorage.getItem('chalk-role')   || 'teacher');
+  const [tweaksOpen, setTweaksOpen] = React.useState(false);
+
+  React.useEffect(() => { localStorage.setItem('chalk-screen', screen); }, [screen]);
+  React.useEffect(() => { localStorage.setItem('chalk-role',   role);   }, [role]);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', tweaks.theme);
+    localStorage.setItem('chalk-tweaks', JSON.stringify(tweaks));
+    window.parent.postMessage({ type:'__edit_mode_set_keys', edits: tweaks }, '*');
+  }, [tweaks]);
+
+  React.useEffect(() => {
+    const handler = e => {
+      if (e.data?.type === '__activate_edit_mode')   setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type:'__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const setTweak = (key, val) => setTweaks(p => ({ ...p, [key]: val }));
+
+  const handleLogin = r => {
+    setRole(r);
+    setScreen(r === 'teacher' ? 'teacher-dash' : 'student-dash');
+  };
+
+  const isApp = screen !== 'landing';
+
+  return (
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:'var(--bg)', color:'var(--text)', overflow:'hidden' }}>
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }} key={screen}>
+        {isApp && <Sidebar screen={screen} setScreen={setScreen} role={role} setRole={setRole} />}
+        {screen==='landing'      && <Landing onLogin={handleLogin} />}
+        {screen==='teacher-dash' && <TeacherDashboard setScreen={setScreen} />}
+        {screen==='student-dash' && <StudentDashboard setScreen={setScreen} />}
+        {screen==='classroom'    && <ClassroomView setScreen={setScreen} role={role} />}
+        {screen==='editor'       && <EditorView setScreen={setScreen} role={role} />}
+        {screen==='submissions'  && <SubmissionsView setScreen={setScreen} />}
+      </div>
+
+      {/* Tweaks */}
+      <div id="tweaks-panel" className={tweaksOpen ? 'open' : ''}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <span style={{ fontSize:13, fontWeight:700, color:'var(--text)' }}>Tweaks</span>
+          <button onClick={()=>setTweaksOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', fontSize:20, lineHeight:1 }}>×</button>
+        </div>
+        <div className="tw-row">
+          <div className="tw-label">Theme</div>
+          <div className="tw-pills">
+            {[['light','☀ Light'],['dark','◑ Dark']].map(([v,l])=>(
+              <button key={v} className={`tw-pill${tweaks.theme===v?' active':''}`} onClick={()=>setTweak('theme',v)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="tw-row">
+          <div className="tw-label">Editor role</div>
+          <div className="tw-pills">
+            {[['student','Student'],['teacher','Teacher']].map(([v,l])=>(
+              <button key={v} className={`tw-pill${tweaks.editorRole===v?' active':''}`} onClick={()=>{setTweak('editorRole',v);setRole(v);setScreen('editor')}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="tw-row">
+          <div className="tw-label">Jump to screen</div>
+          <div className="tw-pills" style={{ flexDirection:'column', alignItems:'stretch' }}>
+            {[
+              ['landing','Landing page'],
+              [role==='teacher'?'teacher-dash':'student-dash','Dashboard'],
+              ['classroom','Classroom'],
+              ['editor','Editor (IDE)'],
+              ['submissions','Submissions'],
+            ].map(([s,l])=>(
+              <button key={s} className={`tw-pill${screen===s?' active':''}`} onClick={()=>setScreen(s)} style={{ textAlign:'left' }}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

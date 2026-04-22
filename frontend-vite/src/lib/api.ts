@@ -80,6 +80,18 @@ export async function getMyStats(): Promise<{ xp: number; submissions_total: num
   return apiClient.get("/api/v1/users/me/stats");
 }
 
+export async function getMyCosmetics(): Promise<Record<string, unknown>> {
+  return apiClient.get("/api/v1/users/me/cosmetics");
+}
+
+export async function updateMyCosmetics(cosmetics: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return apiClient.put("/api/v1/users/me/cosmetics", { cosmetics });
+}
+
+export async function getMyActivity(): Promise<{ days: { date: string; count: number }[] }> {
+  return apiClient.get("/api/v1/users/me/activity");
+}
+
 export function isLoggedIn(): boolean {
   return !!getToken();
 }

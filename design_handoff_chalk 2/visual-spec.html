@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chalk — Visual Handoff: All Screens</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0d0f14; color: white; }
+
+  /* Design tokens — copy these exactly into your codebase */
+  :root {
+    --bg: oklch(0.990 0.007 265); --bg-2: oklch(0.966 0.013 265); --bg-3: oklch(0.940 0.019 265);
+    --border: oklch(0.882 0.022 265); --border-2: oklch(0.820 0.030 265);
+    --text: oklch(0.175 0.038 265); --text-2: oklch(0.420 0.055 265); --text-3: oklch(0.620 0.038 265);
+    --indigo: oklch(0.520 0.260 265); --indigo-10: oklch(0.960 0.048 265); --indigo-20: oklch(0.920 0.078 265);
+    --mint: oklch(0.720 0.155 162); --mint-10: oklch(0.950 0.050 162);
+    --amber: oklch(0.775 0.155 75); --amber-10: oklch(0.960 0.045 75);
+    --rose: oklch(0.650 0.178 15); --rose-10: oklch(0.960 0.040 15);
+    --r: 10px; --r-lg: 16px; --r-xl: 24px;
+    --shadow-sm: 0 1px 4px oklch(0.52 0.26 265 / 0.06);
+    --shadow: 0 4px 16px oklch(0.52 0.26 265 / 0.10);
+    --shadow-lg: 0 12px 40px oklch(0.52 0.26 265 / 0.15);
+    --font: 'Plus Jakarta Sans', sans-serif; --mono: 'DM Mono', monospace;
+  }
+  @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)} }
+  @keyframes blink    { 0%,100%{opacity:1}50%{opacity:0} }
+  @keyframes pulse    { 0%,100%{opacity:1}50%{opacity:.35} }
+  @keyframes fadeIn   { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+  @keyframes orbFloat { 0%{transform:translateY(0)scale(1)}100%{transform:translateY(-30px)scale(1.04)} }
+  @keyframes scrollDot{ 0%{transform:translateY(0);opacity:1}80%{transform:translateY(12px);opacity:0}100%{transform:translateY(0);opacity:0} }
+  @keyframes confettiFall{ 0%{transform:translateY(0)rotate(0)scale(1);opacity:1}85%{opacity:1}100%{transform:translateY(105vh)rotate(720deg)scale(.5);opacity:0} }
+  @keyframes popIn    { 0%{transform:translate(-50%,-40%)scale(.6);opacity:0}60%{transform:translate(-50%,-50%)scale(1.05);opacity:1}100%{transform:translate(-50%,-50%)scale(1);opacity:1} }
+  @keyframes slideInRight{ from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1} }
+  ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+  /* Handoff shell */
+  .hf-header { padding: 24px 40px; background: #080b10; border-bottom: 1px solid #1a2235; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .hf-header h1 { font-size: 16px; font-weight: 800; color: white; }
+  .hf-header p  { font-size: 12px; color: #475569; margin-top: 2px; }
+  .screen-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .screen-nav a { padding: 5px 12px; background: #1a2235; border: 1px solid #2d3a52; border-radius: 6px; color: #94a3b8; font-size: 11px; font-weight: 600; text-decoration: none; transition: all 0.12s; }
+  .screen-nav a:hover { background: #2d3a52; color: white; }
+
+  .screen-block { margin: 0; padding: 0; }
+  .screen-label { padding: 20px 40px 12px; background: #080b10; border-top: 2px solid #1a2235; display: flex; align-items: center; gap: 16px; }
+  .screen-label .num { width: 28px; height: 28px; border-radius: 8px; background: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: white; flex-shrink: 0; }
+  .screen-label .title { font-size: 15px; font-weight: 800; color: white; }
+  .screen-label .sub   { font-size: 12px; color: #475569; margin-top: 2px; }
+  .annotations { padding: 16px 40px; background: #0a0d14; border-bottom: 1px solid #1a2235; display: flex; gap: 20px; flex-wrap: wrap; }
+  .ann-pill { display: flex; align-items: flex-start; gap: 8px; background: #111827; border: 1px solid #1a2235; border-radius: 10px; padding: 10px 14px; max-width: 320px; }
+  .ann-pill .icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .ann-pill .text { font-size: 11.5px; color: #94a3b8; line-height: 1.55; }
+  .ann-pill .text strong { color: white; font-weight: 700; display: block; margin-bottom: 2px; }
+  .screen-frame { background: white; overflow: hidden; }
+  .screen-frame > div { transform-origin: top left; }
+</style>
+</head>
+<body>
+
+<div class="hf-header">
+  <div>
+    <h1>✦ Chalk — Visual Design Handoff</h1>
+    <p>All screens rendered at 1440px. Open Chalk.html for the interactive prototype.</p>
+  </div>
+  <nav class="screen-nav">
+    <a href="#s1">Landing</a>
+    <a href="#s2">Teacher Dash</a>
+    <a href="#s3">Student Dash</a>
+    <a href="#s4">Classroom</a>
+    <a href="#s5">Editor</a>
+    <a href="#s6">Submissions</a>
+  </nav>
+</div>
+
+<!-- SCREEN 1: LANDING -->
+<div class="screen-block" id="s1">
+  <div class="screen-label">
+    <div class="num">01</div>
+    <div><div class="title">Landing Page</div><div class="sub">marketing · arc-style · animated on scroll</div></div>
+  </div>
+  <div class="annotations">
+    <div class="ann-pill"><div class="icon">🌊</div><div class="text"><strong>Background orbs</strong>3 radial gradient blobs behind the hero. Animate with CSS: <code style="color:#818cf8">@keyframes orbFloat</code> — translateY(-30px) + scale(1.04), duration 8–12s, direction: alternate. One indigo, one purple, one mint.</div></div>
+    <div class="ann-pill"><div class="icon">⌨️</div><div class="text"><strong>Live code typing in mockup</strong>Line 5 of the editor mock types itself character by character. Implement with <code style="color:#818cf8">setInterval</code> every 80ms, appending one char. Stop when line is complete.</div></div>
+    <div class="ann-pill"><div class="icon">🖱️</div><div class="text"><strong>Collaboration cursors drift</strong>Two named cursors (Prof. Chen + Jordan) drift slightly every 1.8s via <code style="color:#818cf8">setInterval</code> with Math.random() ±2px on x, ±1px on y. Use CSS <code style="color:#818cf8">transition: left 0.6s ease</code> to smooth movement.</div></div>
+    <div class="ann-pill"><div class="icon">📜</div><div class="text"><strong>Scroll-reveal sections</strong>Every section below the hero uses <code style="color:#818cf8">IntersectionObserver</code> (threshold: 0.12). On intersection: <code style="color:#818cf8">opacity: 0→1</code> + <code style="color:#818cf8">translateY(28px→0)</code> over 0.7s ease. Stagger children 100ms apart.</div></div>
+    <div class="ann-pill"><div class="icon">🌀</div><div class="text"><strong>Scroll indicator</strong>Mouse icon at bottom-center. Inner dot animates: <code style="color:#818cf8">translateY(0→12px) + opacity 1→0</code>, 1.6s ease-in-out infinite loop. Hides when user scrolls past hero.</div></div>
+    <div class="ann-pill"><div class="icon">🔴</div><div class="text"><strong>Live dot pulse</strong>The mint green dot in the pill badge uses <code style="color:#818cf8">@keyframes pulseDot</code> — scale(1→0.85) + opacity(1→0.6), 2s infinite. Used everywhere a "live" indicator appears.</div></div>
+  </div>
+  <div class="screen-frame" id="frame1" style="height: 680px; overflow: hidden;"></div>
+</div>
+
+<!-- SCREEN 2: TEACHER DASHBOARD -->
+<div class="screen-block" id="s2">
+  <div class="screen-label">
+    <div class="num">02</div>
+    <div><div class="title">Teacher Dashboard</div><div class="sub">teacher role · overview of all classrooms</div></div>
+  </div>
+  <div class="annotations">
+    <div class="ann-pill"><div class="icon">📊</div><div class="text"><strong>Stats cards</strong>4-column grid. Each card: white bg, 1px border, borderRadius 16px, padding 22px. Icon in a 36×36 rounded-10 box with color at 18% opacity. Value in 32px/800 weight. No animation — static display.</div></div>
+    <div class="ann-pill"><div class="icon">🏫</div><div class="text"><strong>Classroom progress bars</strong>Each classroom card has a 4px progress bar at the bottom: <code style="color:#818cf8">active / total students × 100%</code>. Fill color matches the classroom's accent color. Animate fill width with <code style="color:#818cf8">transition: width 0.6s ease</code> on mount.</div></div>
+    <div class="ann-pill"><div class="icon">🟢</div><div class="text"><strong>Card hover state</strong>On <code style="color:#818cf8">:hover</code>: border-color changes to <code style="color:#818cf8">var(--indigo)</code>, box-shadow appears. Use <code style="color:#818cf8">transition: all 0.14s</code>. Cards with <code style="color:#818cf8">onClick</code> get cursor: pointer.</div></div>
+  </div>
+  <div class="screen-frame" style="height: 680px; overflow: hidden;" id="frame2"></div>
+</div>
+
+<!-- SCREEN 3: STUDENT DASHBOARD -->
+<div class="screen-block" id="s3">
+  <div class="screen-label">
+    <div class="num">03</div>
+    <div><div class="title">Student Dashboard</div><div class="sub">student role · Steam-like profile · gamification</div></div>
+  </div>
+  <div class="annotations">
+    <div class="ann-pill"><div class="icon">🎮</div><div class="text"><strong>Profile hero gradient</strong>Background is user-selected from cosmetics shop. Default: <code style="color:#818cf8">linear-gradient(135deg, oklch(0.52 0.26 265), oklch(0.48 0.27 265))</code>. Overlay: CSS grid pattern at <code style="color:#818cf8">rgba(255,255,255,0.03)</code>, 40px cells.</div></div>
+    <div class="ann-pill"><div class="icon">💍</div><div class="text"><strong>Avatar frame glow</strong>The avatar border color + box-shadow glow both come from the equipped frame cosmetic. Gold frame: <code style="color:#818cf8">border: 3px solid #ffd700; box-shadow: 0 0 16px #ffd70066</code>. Animate with <code style="color:#818cf8">transition: box-shadow 0.4s, border-color 0.4s</code> when equipping.</div></div>
+    <div class="ann-pill"><div class="icon">⬡</div><div class="text"><strong>XP progress bar</strong>Custom component, NOT a native range input. Height 6px, bg <code style="color:#818cf8">rgba(255,255,255,0.15)</code>, fill color white with <code style="color:#818cf8">box-shadow: 0 0 8px white</code>. Animate fill width from 0→actual on mount with <code style="color:#818cf8">transition: width 1s ease</code>.</div></div>
+    <div class="ann-pill"><div class="icon">🛒</div><div class="text"><strong>Cosmetics shop toggle</strong>"✦ Customize" button reveals shop panel with <code style="color:#818cf8">animation: fadeIn 0.2s ease</code>. Clicking a frame tile immediately updates the avatar preview above. Locked items show <code style="color:#818cf8">opacity: 0.5; cursor: not-allowed</code>. Equipped item shows indigo border.</div></div>
+    <div class="ann-pill"><div class="icon">🏆</div><div class="text"><strong>Achievement badges hover</strong>Unlocked badges: <code style="color:#818cf8">transform: scale(1.05)</code> on hover, transition 0.15s. Locked badges: <code style="color:#818cf8">opacity: 0.45; filter: grayscale(1)</code>. Rarity colors: common=#94a3b8, rare=#818cf8, epic=purple, legendary=#fbbf24.</div></div>
+    <div class="ann-pill"><div class="icon">📅</div><div class="text"><strong>Activity heatmap</strong>15 weeks × 7 days grid. Cell size 10×10px, gap 3px, borderRadius 2px. 5 color tiers: transparent, #1e3a5f, #1d4ed8, #3b82f6, #818cf8. No animation — static render.</div></div>
+  </div>
+  <div class="screen-frame" style="height: 900px; overflow: hidden;" id="frame3"></div>
+</div>
+
+<!-- SCREEN 4: CLASSROOM VIEW -->
+<div class="screen-block" id="s4">
+  <div class="screen-label">
+    <div class="num">04</div>
+    <div><div class="title">Classroom View</div><div class="sub">teacher & student role · tabs: Students | Assignments</div></div>
+  </div>
+  <div class="annotations">
+    <div class="ann-pill"><div class="icon">🔴</div><div class="text"><strong>Live student indicator</strong>Online students show a pulsing mint dot (see pulseDot keyframe) bottom-right of their avatar — 10px, border 1.5px solid bg color. Offline shows a static grey dot.</div></div>
+    <div class="ann-pill"><div class="icon">📋</div><div class="text"><strong>Assignment progress bar</strong>4px bar below each assignment row. Fill = <code style="color:#818cf8">submissions / total × 100%</code>. Indigo color. Animate width on mount with 0.6s ease transition.</div></div>
+    <div class="ann-pill"><div class="icon">🖱️</div><div class="text"><strong>Row hover state</strong>Student/assignment rows: <code style="color:#818cf8">background: var(--bg-2)</code> on hover, transition 0.12s. Rows are full-width clickable targets (cursor: pointer).</div></div>
+  </div>
+  <div class="screen-frame" style="height: 680px; overflow: hidden;" id="frame4"></div>
+</div>
+
+<!-- SCREEN 5: EDITOR -->
+<div class="screen-block" id="s5">
+  <div class="screen-label">
+    <div class="num">05</div>
+    <div><div class="title">IDE Editor</div><div class="sub">student & teacher role · dark surface · always dark regardless of theme</div></div>
+  </div>
+  <div class="annotations">
+    <div class="ann-pill"><div class="icon">🌳</div><div class="text"><strong>Chapter file tree</strong>3-level tree: Chapters → Sessions → files. Chapters and sessions have a ▶ arrow that rotates 90° when open (<code style="color:#818cf8">transition: transform 0.15s</code>). Active file: <code style="color:#818cf8">background: #1e2a3a</code>. Worksheet.py has an inline "shared" tag badge.</div></div>
+    <div class="ann-pill"><div class="icon">👆</div><div class="text"><strong>Collaboration cursors</strong>Absolute-positioned 2px × 18px colored bars on specific lines. Above each cursor: floating name label (9px/700, bg matches cursor color). Cursors blink with <code style="color:#818cf8">@keyframes blink</code> 1.2s infinite. Each user has a unique color.</div></div>
+    <div class="ann-pill"><div class="icon">✏️</div><div class="text"><strong>Syntax-highlighted editor</strong>A transparent <code style="color:#818cf8">&lt;textarea&gt;</code> sits on top of a read-only <code style="color:#818cf8">&lt;div&gt;</code> with HTML spans for colors. <code style="color:#818cf8">caretColor: #e2e8f0</code>, <code style="color:#818cf8">color: transparent</code> on the textarea. Scroll is synced between both layers.</div></div>
+    <div class="ann-pill"><div class="icon">🎉</div><div class="text"><strong>Confetti on submit</strong>90 pieces from top of screen. Random x (0–100%), shapes: circle/square/rectangle, colors from 7-color palette. <code style="color:#818cf8">@keyframes confettiFall</code>: translateY(105vh) + rotate(720deg) over 1.2–2.6s. Success popup card uses <code style="color:#818cf8">@keyframes popIn</code>: scale(0.6→1.05→1) + opacity.</div></div>
+    <div class="ann-pill"><div class="icon">🖊️</div><div class="text"><strong>Drawing board slide-in</strong>Click "✏ Draw" button → panel slides in from right: <code style="color:#818cf8">@keyframes slideInRight</code> (translateX 100%→0), 0.2s ease. Has a fullscreen toggle. Canvas bg: #1a1f2e with CSS grid overlay. Drawing uses HTML5 Canvas API with lineCap/lineJoin: round.</div></div>
+    <div class="ann-pill"><div class="icon">▶</div><div class="text"><strong>Run simulation</strong>Output lines appear one by one every 300ms using setInterval. "running…" text pulses with <code style="color:#818cf8">@keyframes pulse</code> in the terminal tab bar while executing.</div></div>
+    <div class="ann-pill"><div class="icon">📌</div><div class="text"><strong>Right panel — role-based</strong>Teacher sees: Students tab (who's editing + line number) + Submissions tab (all). Student sees: only their own Submissions tab. Expandable submission rows show inline test results on click.</div></div>
+  </div>
+  <div class="screen-frame" style="height: 680px; overflow: hidden;" id="frame5"></div>
+</div>
+
+<!-- SCREEN 6: SUBMISSIONS -->
+<div class="screen-block" id="s6">
+  <div class="screen-label">
+    <div class="num">06</div>
+    <div><div class="title">Submission Review</div><div class="sub">teacher role · code viewer + test results</div></div>
+  </div>
+  <div class="annotations">
+    <div class="ann-pill"><div class="icon">📋</div><div class="text"><strong>Active row highlight</strong>Selected submission: <code style="color:#818cf8">background: var(--indigo-10); border-left: 3px solid var(--indigo)</code>. Name changes to indigo color. Transition: 0.12s background.</div></div>
+    <div class="ann-pill"><div class="icon">💻</div><div class="text"><strong>Code display</strong>Dark surface (#0f1117), DM Mono 12.5px. Syntax highlighting via dangerouslySetInnerHTML (same tokenizer as editor). Line numbers in a left column at #1e2a3a color.</div></div>
+    <div class="ann-pill"><div class="icon">✅</div><div class="text"><strong>Test result icons</strong>Pass: ✓ in var(--mint). Fail: ✗ in var(--text-3). Test name in DM Mono 12px. Score shown as large percentage, color: green if ≥80%, amber if >0%, rose if 0%.</div></div>
+  </div>
+  <div class="screen-frame" style="height: 680px; overflow: hidden;" id="frame6"></div>
+</div>
+
+<!-- Color Token Reference -->
+<div style="padding: 40px; background: #080b10; border-top: 2px solid #1a2235;">
+  <h2 style="font-size: 16px; font-weight: 800; color: white; margin-bottom: 20px;">Design Tokens — Color Reference</h2>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 32px;">
+    ${[
+      ['--indigo', 'oklch(0.52 0.26 265)', '#4f46e5', 'Primary'],
+      ['--mint', 'oklch(0.72 0.155 162)', '#10b981', 'Success / Live'],
+      ['--amber', 'oklch(0.775 0.155 75)', '#f59e0b', 'Warning / Streak'],
+      ['--rose', 'oklch(0.65 0.178 15)', '#ef4444', 'Error / Failed'],
+    ].map(([name, oklch, hex, label]) => `
+      <div style="display:flex;align-items:center;gap:10px;background:#111827;border-radius:10px;padding:10px 12px;border:1px solid #1a2235">
+        <div style="width:32px;height:32px;border-radius:8px;background:${hex};flex-shrink:0"></div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:white">${name}</div>
+          <div style="font-size:10px;color:#475569;font-family:DM Mono,monospace">${oklch}</div>
+          <div style="font-size:10px;color:#334155">${label}</div>
+        </div>
+      </div>
+    `).join('')}
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    ${[
+      ['Editor BG', '#0d1117'], ['Editor Sidebar', '#0a0f1a'], ['Editor Chrome', '#080d14'],
+      ['Editor Border', '#1a2235'], ['Editor Border 2', '#2d3a52'], ['Editor Text', '#e2e8f0'],
+      ['Syntax Keyword', '#818cf8'], ['Syntax Function', '#34d399'], ['Syntax String', '#fbbf24'],
+      ['Syntax Number', '#c084fc'], ['Syntax Comment', '#475569'],
+    ].map(([label, hex]) => `
+      <div style="display:flex;align-items:center;gap:8px;background:#111827;border:1px solid #1a2235;border-radius:8px;padding:8px 12px">
+        <div style="width:20px;height:20px;border-radius:4px;background:${hex};border:1px solid #1a2235;flex-shrink:0"></div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:white">${label}</div>
+          <div style="font-size:10px;font-family:DM Mono,monospace;color:#475569">${hex}</div>
+        </div>
+      </div>
+    `).join('')}
+  </div>
+</div>
+
+<script src="../chalk/components.jsx" type="text/babel" data-presets="react"></script>
+<script src="../chalk/landing.jsx"    type="text/babel" data-presets="react"></script>
+<script src="../chalk/screens.jsx"    type="text/babel" data-presets="react"></script>
+<script src="../chalk/editor.jsx"     type="text/babel" data-presets="react"></script>
+
+<script type="text/babel" data-presets="react">
+const SCALE = 0.62;
+
+function ScreenFrame({ id, children, height = 680 }) {
+  return (
+    <div style={{ height, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ width: 1440, height: Math.round(height / SCALE), transform: `scale(${SCALE})`, transformOrigin: 'top left', overflow: 'hidden' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Mount each screen into its frame
+function noop() {}
+
+const frames = [
+  { id: 'frame1', el: <ScreenFrame height={680}><Landing onLogin={noop} heroVariant={1} /></ScreenFrame> },
+  { id: 'frame2', el: <ScreenFrame height={680}><div style={{display:'flex',height:'100vh',background:'var(--bg-2)'}}><Sidebar screen="teacher-dash" setScreen={noop} role="teacher" setRole={noop}/><TeacherDashboard setScreen={noop}/></div></ScreenFrame> },
+  { id: 'frame3', el: <ScreenFrame height={900}><div style={{display:'flex',height:'100vh',background:'var(--bg-2)'}}><Sidebar screen="student-dash" setScreen={noop} role="student" setRole={noop}/><StudentDashboard setScreen={noop}/></div></ScreenFrame> },
+  { id: 'frame4', el: <ScreenFrame height={680}><div style={{display:'flex',height:'100vh'}}><Sidebar screen="classroom" setScreen={noop} role="teacher" setRole={noop}/><ClassroomView setScreen={noop} role="teacher"/></div></ScreenFrame> },
+  { id: 'frame5', el: <ScreenFrame height={680}><div style={{display:'flex',height:'100vh'}}><EditorView setScreen={noop} role="student"/></div></ScreenFrame> },
+  { id: 'frame6', el: <ScreenFrame height={680}><div style={{display:'flex',height:'100vh'}}><Sidebar screen="submissions" setScreen={noop} role="teacher" setRole={noop}/><SubmissionsView setScreen={noop}/></div></ScreenFrame> },
+];
+
+frames.forEach(({ id, el }) => {
+  const container = document.getElementById(id);
+  if (container) {
+    const root = ReactDOM.createRoot(container);
+    root.render(el);
+  }
+});
+</script>
+</body>
+</html>

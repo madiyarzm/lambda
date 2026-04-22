@@ -2,16 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Chalk Design Tokens ──────────────────────────────────────────────── */
 :root {
+  --indigo: oklch(55% 0.22 264);
+  --indigo-dim: oklch(48% 0.19 264);
+  --indigo-muted: oklch(55% 0.22 264 / 0.15);
+  --mint: oklch(72% 0.18 168);
+  --mint-dim: oklch(62% 0.15 168);
+  --mint-muted: oklch(72% 0.18 168 / 0.15);
+  --amber: oklch(78% 0.17 85);
+  --amber-dim: oklch(68% 0.14 85);
+  --amber-muted: oklch(78% 0.17 85 / 0.15);
+  --rose: oklch(65% 0.21 15);
+  --rose-dim: oklch(55% 0.18 15);
+  --rose-muted: oklch(65% 0.21 15 / 0.15);
+
+  --bg: oklch(14% 0.01 264);
+  --bg-2: oklch(18% 0.015 264);
+  --bg-3: oklch(22% 0.02 264);
+  --border: oklch(28% 0.025 264);
+  --border-2: oklch(35% 0.03 264);
+  --subtle: oklch(50% 0.04 264);
+  --muted: oklch(65% 0.03 264);
+  --text: oklch(92% 0.01 264);
+
+  /* Aliases used by design handoff */
+  --text-2: oklch(75% 0.02 264);
+  --text-3: oklch(50% 0.04 264);
+  --font: "Plus Jakarta Sans", system-ui, sans-serif;
+  --r: 12px;
+  --r-lg: 20px;
+  --shadow: 0 0 0 1px var(--indigo), 0 8px 32px oklch(55% 0.22 264 / 0.2);
+
+  /* Alpha swatches used in design tokens */
+  --indigo-10: oklch(55% 0.22 264 / 0.10);
+  --indigo-20: oklch(55% 0.22 264 / 0.20);
+  --mint-10: oklch(72% 0.18 168 / 0.12);
+  --amber-10: oklch(78% 0.17 85 / 0.12);
+  --rose-10: oklch(65% 0.21 15 / 0.12);
+
   color-scheme: dark;
 }
 
-body {
-  @apply bg-slate-950 text-slate-300;
+/* ── Light theme overrides ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: oklch(98% 0.005 264);
+  --bg-2: oklch(95% 0.007 264);
+  --bg-3: oklch(91% 0.01 264);
+  --border: oklch(85% 0.015 264);
+  --border-2: oklch(78% 0.02 264);
+  --subtle: oklch(55% 0.04 264);
+  --muted: oklch(45% 0.03 264);
+  --text: oklch(12% 0.01 264);
+  --text-2: oklch(30% 0.02 264);
+  --text-3: oklch(50% 0.03 264);
+
+  --indigo: oklch(45% 0.22 264);
+  --indigo-dim: oklch(38% 0.19 264);
+  --indigo-muted: oklch(45% 0.22 264 / 0.12);
+  --mint: oklch(52% 0.18 168);
+  --mint-dim: oklch(44% 0.15 168);
+  --mint-muted: oklch(52% 0.18 168 / 0.12);
+  --amber: oklch(58% 0.17 85);
+  --amber-dim: oklch(50% 0.14 85);
+  --amber-muted: oklch(58% 0.17 85 / 0.12);
+  --rose: oklch(52% 0.21 15);
+  --rose-dim: oklch(44% 0.18 15);
+  --rose-muted: oklch(52% 0.21 15 / 0.12);
+
+  --indigo-10: oklch(45% 0.22 264 / 0.10);
+  --indigo-20: oklch(45% 0.22 264 / 0.18);
+  --mint-10: oklch(52% 0.18 168 / 0.10);
+  --amber-10: oklch(58% 0.17 85 / 0.10);
+  --rose-10: oklch(52% 0.21 15 / 0.10);
+
+  --shadow: 0 0 0 1px var(--indigo), 0 8px 32px oklch(45% 0.22 264 / 0.15);
+
+  color-scheme: light;
 }
 
-/* Yjs collaborative cursor styles for y-codemirror.next actual classes. */
+/* Base styles */
+body {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
+code, pre, .font-mono {
+  font-family: "DM Mono", ui-monospace, monospace;
+}
+
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+@keyframes cursorPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.7; }
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-20px) scale(1.04); }
+}
+
+@keyframes typingCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--subtle);
+}
+
+/* ── Yjs collaborative cursor styles ──────────────────────────────────── */
 .cm-ySelection {
   opacity: 0.35;
 }
@@ -37,7 +157,7 @@ body {
   top: -0.15em !important;
   left: 5px !important;
   font-size: 8px !important;
-  font-family: ui-monospace, monospace !important;
+  font-family: "DM Mono", ui-monospace, monospace !important;
   font-weight: 600 !important;
   padding: 1px 4px !important;
   border-radius: 4px !important;
@@ -50,14 +170,4 @@ body {
 
 .cm-ySelectionCaret:hover .cm-ySelectionInfo {
   opacity: 0.78 !important;
-}
-
-@keyframes cursorPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
 }
