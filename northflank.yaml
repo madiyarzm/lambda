@@ -1,0 +1,57 @@
+# Northflank service reference
+# Docs: https://northflank.com/docs
+#
+# This file documents the service configuration. Setup is done once via the
+# Northflank UI or CLI — Northflank watches the GitHub repo and CI triggers
+# builds via the API on every passing main-branch push.
+#
+# ── Manual setup steps ────────────────────────────────────────────────────────
+# 1. northflank.com → sign up (free)
+# 2. Create a project: name "lambda", region closest to you
+# 3. Create a combined service inside that project:
+#      Name:             lambda-app         (note down the service ID shown in URL)
+#      Repository:       your GitHub repo   (authorize GitHub when prompted)
+#      Branch:           main
+#      Build method:     Dockerfile
+#      Dockerfile path:  ./Dockerfile
+#      Port:             8000, HTTP, public ✓
+#      Auto-deploy:      OFF  (CI triggers builds after tests pass)
+#      Resource plan:    Developer Sandbox  (free)
+# 4. Add environment variables (Northflank UI → lambda-app → Environment):
+#      ENV=production
+#      SANDBOX_USE_DOCKER=false
+#      DATABASE_URL=<Supabase direct connection string, port 5432>
+#      GOOGLE_CLIENT_ID=<from Google Cloud Console>
+#      GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
+#      SECRET_KEY=<generate: python3 -c "import secrets; print(secrets.token_hex(32))">
+#      ANTHROPIC_API_KEY=<optional, enables AI hints>
+#      FRONTEND_URL=<your-service.code.run>  (fill in after first deploy)
+# 5. Account settings → API tokens → generate token → copy it
+# 6. Add to GitHub repo → Settings → Secrets and variables → Actions:
+#      NORTHFLANK_API_KEY    = <token from step 5>
+#      NORTHFLANK_PROJECT_ID = <project ID from Northflank UI>
+#      NORTHFLANK_SERVICE_ID = <service ID from Northflank UI>
+# 7. Push to main — GitHub Actions runs tests, then triggers Northflank build.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Service spec (reference only — not applied automatically)
+spec:
+  name: lambda-app
+  billing:
+    deploymentPlan: nf-compute-10   # Developer Sandbox (free)
+  deployment:
+    instances: 1
+  image:
+    type: dockerfile
+    buildContextPath: /
+    dockerFilePath: /Dockerfile
+  ports:
+    - internalPort: 8000
+      protocol: HTTP
+      public: true
+  healthChecks:
+    - protocol: HTTP
+      path: /health
+      port: 8000
+      initialDelaySeconds: 30
+      periodSeconds: 30

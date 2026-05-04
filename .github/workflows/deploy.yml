@@ -47,17 +47,17 @@ jobs:
       - run: npx tsc --noEmit
         working-directory: frontend-vite
 
-  # ── Deploy to Render (main branch only) ─────────────────────────────────────
+  # ── Deploy to Northflank (main branch only) ─────────────────────────────────
   deploy:
-    name: Deploy to Render
+    name: Deploy to Northflank
     needs: [test, typecheck]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Render deploy
+      - name: Trigger Northflank build
         run: |
-          curl -fsS -X POST "https://api.render.com/v1/services/srv-d79h91ma2pns73e4jbrg/deploys" \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"clearCache":"do_not_clear"}'
-          echo "Deploy triggered."
+          curl -fsS -X POST \
+            "https://api.northflank.com/v1/projects/${{ secrets.NORTHFLANK_PROJECT_ID }}/services/${{ secrets.NORTHFLANK_SERVICE_ID }}/build" \
+            -H "Authorization: Bearer ${{ secrets.NORTHFLANK_API_KEY }}" \
+            -H "Content-Type: application/json"
+          echo "Build triggered on Northflank."

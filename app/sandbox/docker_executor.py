@@ -38,7 +38,7 @@ class DockerSandboxExecutor(SandboxExecutor):
     def __init__(self, image: str = "lambda-sandbox:latest"):
         self.image = image
 
-    def run(self, code: str, timeout_seconds: int | None = None) -> SandboxResult:
+    def run(self, code: str, timeout_seconds: int | None = None, stdin: str = "") -> SandboxResult:
         """
         Execute code in a container: mount code, run python, capture output.
         """
@@ -49,8 +49,9 @@ class DockerSandboxExecutor(SandboxExecutor):
             code_path.write_text(code, encoding="utf-8")
 
             # Run container: no network, read-only root, tmpfs for /tmp (Python cache), mount code, timeout.
+            # -i keeps stdin open so input() calls receive the piped stdin string.
             cmd = [
-                "docker", "run", "--rm",
+                "docker", "run", "--rm", "-i",
                 "--network=none",
                 "--read-only",
                 "--tmpfs", "/tmp:noexec,nosuid,size=64m",
@@ -63,6 +64,7 @@ class DockerSandboxExecutor(SandboxExecutor):
             try:
                 proc = subprocess.run(
                     cmd,
+                    input=stdin,
                     capture_output=True,
                     text=True,
                     timeout=timeout + 5,  # Slight buffer for docker shutdown
