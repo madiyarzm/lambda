@@ -58,7 +58,7 @@ def create_app() -> FastAPI:
     """Factory for the FastAPI app. Used by uvicorn and tests."""
     settings = get_settings()
     app = FastAPI(
-        title="Lambda",
+        title="Chalk",
         description="Collaborative coding classroom platform",
         version="0.1.0",
         lifespan=lifespan,
@@ -84,7 +84,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:
-        return {"status": "ok", "service": "lambda"}
+        return {"status": "ok", "service": "chalk"}
 
     # Serve frontend static files.
     # Assets (JS/CSS/images) are served directly; all other paths fall back to

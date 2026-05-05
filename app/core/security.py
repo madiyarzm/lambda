@@ -1,5 +1,5 @@
 """
-JWT utilities for Lambda.
+JWT utilities for Chalk.
 
 We issue short-lived access tokens after successful authentication
 and verify them on protected routes. Tokens are signed with a secret

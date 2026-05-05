@@ -1,10 +1,10 @@
 /**
- * API client for Lambda backend.
+ * API client for Chalk backend.
  *
  * Mirrors the backend REST API with typed wrappers.
  */
 
-// In production (single Render service) VITE_API_URL is empty → same-origin.
+// In production (same-origin, Northflank) VITE_API_URL is empty → same-origin.
 // In local dev, Vite runs on :5173 so we point to the backend on :8000.
 const API_BASE: string =
   (import.meta.env.VITE_API_URL as string | undefined) ??
