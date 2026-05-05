@@ -10,7 +10,7 @@ from typing import List
 from uuid import UUID
 
 from sqlalchemy import delete
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
 from app.models.assignment import Assignment
@@ -173,6 +173,7 @@ def list_submissions_for_assignment(
     cutoff = _retention_cutoff()
     query = (
         db.query(Submission)
+        .options(joinedload(Submission.user))
         .filter(Submission.assignment_id == assignment.id)
         .filter(Submission.submitted_at >= cutoff)
     )

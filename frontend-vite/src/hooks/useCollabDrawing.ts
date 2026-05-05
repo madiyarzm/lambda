@@ -168,7 +168,8 @@ export function useCollabDrawing(
     const httpBase =
       window.location.port === "5173" ? "http://localhost:8000" : window.location.origin;
     const wsBase = httpBase.replace(/^http/, "ws");
-    const url = `${wsBase.replace(/\/$/, "")}/ws/collab/${encodeURIComponent(roomId)}`;
+    const token = localStorage.getItem("lambda_token") ?? "";
+    const url = `${wsBase.replace(/\/$/, "")}/ws/collab/${encodeURIComponent(roomId)}?token=${encodeURIComponent(token)}`;
     const socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
 

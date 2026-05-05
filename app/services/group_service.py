@@ -9,7 +9,7 @@ import secrets
 from typing import List
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.group import Group
 from app.models.group_membership import GroupMembership
@@ -112,25 +112,23 @@ def list_group_members(db: Session, group: Group) -> List[dict]:
     """
     memberships = (
         db.query(GroupMembership)
+        .options(joinedload(GroupMembership.user))
         .filter(GroupMembership.group_id == group.id)
         .order_by(GroupMembership.joined_at.asc())
         .all()
     )
-    user_ids = [m.user_id for m in memberships]
-    users = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
 
-    result = []
-    for m in memberships:
-        u = users.get(m.user_id)
-        result.append({
+    return [
+        {
             "id": m.id,
             "user_id": m.user_id,
-            "name": u.name if u else "Unknown",
-            "email": u.email if u else "",
+            "name": m.user.name if m.user else "Unknown",
+            "email": m.user.email if m.user else "",
             "role": m.role,
             "joined_at": m.joined_at,
-        })
-    return result
+        }
+        for m in memberships
+    ]
 
 
 def remove_member(db: Session, group: Group, user_id: UUID) -> None:

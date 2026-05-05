@@ -8,7 +8,9 @@ export const AuthCallback: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
+    // Token is delivered in the URL hash fragment (not query string) so it
+    // never appears in server logs or Referer headers.
+    const token = window.location.hash.substring(1) || null;
     const err = searchParams.get("error");
 
     if (token) {

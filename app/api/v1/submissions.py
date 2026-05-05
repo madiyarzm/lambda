@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from app.dependencies import CurrentUser, DBSession
-from app.models.classroom import Classroom
+from app.models.submission import Submission
 from app.models.user import User
 from app.schemas.assignment import SubmissionCreate, SubmissionRead
 from app.services.assignment_service import get_assignment_or_404
@@ -30,8 +30,8 @@ class FeedbackPayload(BaseModel):
     feedback: str
 
 
-def _submission_to_read(submission, submitter_name: str = "", submitter_email: str | None = None) -> SubmissionRead:
-    """Build SubmissionRead with display fields (submitter, status_display, error_summary, test_passed, feedback)."""
+def _submission_to_read(submission: Submission, submitter_name: str = "", submitter_email: str | None = None) -> SubmissionRead:
+    """Build SubmissionRead with display fields."""
     status_display, error_summary = get_submission_status_display(submission)
     result = submission.result_json or {}
     test_passed = result.get("test_passed") if isinstance(result, dict) else None
@@ -53,15 +53,13 @@ def create_submission_endpoint(
     current_user: CurrentUser,
     db: DBSession,
 ) -> SubmissionRead:
-    """
-    Create a new submission: run code in sandbox and save result.
-    """
+    """Create a new submission: run code in sandbox and save result."""
     try:
         submission = create_submission(db, assignment_id=payload.assignment_id, user=current_user, code=payload.code)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
     return _submission_to_read(submission, submitter_name=current_user.name or "", submitter_email=current_user.email)
 
 
@@ -71,23 +69,19 @@ def list_submissions_endpoint(
     db: DBSession,
     assignment_id: UUID = Query(..., description="Assignment to list submissions for."),
 ) -> list[SubmissionRead]:
-    """
-    List submissions for an assignment with submitter and status display.
-    """
+    """List submissions for an assignment with submitter and status display."""
     try:
         submissions = list_submissions_for_assignment(db, assignment_id=assignment_id, user=current_user)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
-    user_ids = list({s.user_id for s in submissions})
-    users = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
     return [
         _submission_to_read(
             s,
-            submitter_name=users[s.user_id].name if users.get(s.user_id) else "Unknown",
-            submitter_email=users[s.user_id].email if users.get(s.user_id) else None,
+            submitter_name=s.user.name if s.user else "Unknown",
+            submitter_email=s.user.email if s.user else None,
         )
         for s in submissions
     ]
@@ -99,15 +93,13 @@ def get_submission_endpoint(
     current_user: CurrentUser,
     db: DBSession,
 ) -> SubmissionRead:
-    """
-    Get a single submission with submitter and status display.
-    """
+    """Get a single submission with submitter and status display."""
     try:
         submission = get_submission_or_404(db, submission_id=submission_id, user=current_user)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
 
     submitter = db.get(User, submission.user_id)
     return _submission_to_read(
@@ -124,15 +116,13 @@ def add_feedback_endpoint(
     current_user: CurrentUser,
     db: DBSession,
 ) -> SubmissionRead:
-    """
-    Add or update mentor feedback on a submission. Teacher-only.
-    """
+    """Add or update mentor feedback on a submission. Teacher-only."""
     try:
         submission = get_submission_or_404(db, submission_id=submission_id, user=current_user)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
 
     assignment = get_assignment_or_404(db, assignment_id=submission.assignment_id)
     classroom = _get_classroom_from_assignment(db, assignment)

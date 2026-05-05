@@ -13,10 +13,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.router import api_router
 from app.api import ws_collab
 from app.config import get_settings
+from app.core.limiter import limiter
 from app.db.init_db import init_db
 from app.db.session import SessionLocal
 from app.services.submission_service import delete_expired_submissions
@@ -66,17 +70,21 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.app_env != "production" else None,
     )
 
-    # CORS: allow frontend origin; restrict in production to known origins.
-    # For development we allow all origins so that the Vite dev server
-    # on port 5173 can talk to the API without CORS issues.
-    # In production, this should be restricted to known frontend origins.
+    allowed_origins = [settings.frontend_url]
+    if settings.app_env != "production":
+        allowed_origins += ["http://localhost:5173", "http://localhost:8000"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
     app.include_router(api_router, prefix="/api")
     # WebSocket collaboration endpoint (not versioned; used by Yjs clients).

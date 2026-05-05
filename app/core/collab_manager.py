@@ -1,7 +1,10 @@
+import logging
 from collections import defaultdict
 from typing import Dict, Set
 
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 
 class CollabRoomManager:
@@ -37,10 +40,9 @@ class CollabRoomManager:
                 continue
             try:
                 await client.send_bytes(data)
-            except Exception:
-                # Best-effort: drop clients that cannot be written to.
+            except Exception as exc:
+                logger.warning("Dropping unresponsive client in room %s: %s", room_id, exc)
                 self.disconnect(room_id, client)
 
 
 manager = CollabRoomManager()
-

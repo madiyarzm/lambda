@@ -5,16 +5,20 @@ Used by FastAPI Depends() to provide DB session, config, and (later) current use
 Keeps route handlers thin and testable.
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 # Type aliases for cleaner route signatures
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -24,13 +28,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
 def get_current_user_token(token: str = Depends(oauth2_scheme)) -> str:
-    """
-    Dependency that extracts the raw JWT token from the Authorization header.
-
-    Returns:
-        Bearer token string without the scheme prefix.
-    """
-
     return token
 
 
@@ -44,7 +41,6 @@ def get_current_user(
 
     Raises HTTP 401 if the token is invalid or the user does not exist.
     """
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -55,8 +51,12 @@ def get_current_user(
         user_id: str | None = payload.get("sub")  # type: ignore[assignment]
         if user_id is None:
             raise credentials_exception
-    except Exception:
-        # Intentionally catch broad exceptions here to avoid leaking token errors.
+    except JWTError:
+        raise credentials_exception
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Unexpected error decoding token: %s", exc)
         raise credentials_exception
 
     user = db.get(User, user_id)
@@ -74,8 +74,6 @@ def require_admin(
 ) -> User:
     """
     Dependency that restricts access to the admin account only.
-
-    Raises HTTP 403 if the current user is not the admin.
     """
     if current_user.email != settings.admin_email:
         raise HTTPException(
