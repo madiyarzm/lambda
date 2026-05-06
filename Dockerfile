@@ -26,5 +26,7 @@ EXPOSE 8000
 # Subprocess sandbox — no Docker daemon available inside Render containers.
 ENV SANDBOX_USE_DOCKER=false
 
-# Run Alembic migrations then start the server.
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'
+# startup.sh: stamps DB at head if no alembic_version exists, then upgrades + starts uvicorn.
+COPY startup.sh ./
+RUN chmod +x startup.sh
+CMD ["./startup.sh"]
