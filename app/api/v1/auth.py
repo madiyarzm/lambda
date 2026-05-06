@@ -42,7 +42,7 @@ async def auth_google(request: Request, settings: Settings = Depends(get_setting
             detail="Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
         )
 
-    redirect_uri = str(request.url_for("auth_callback"))
+    redirect_uri = f"{settings.frontend_url}/api/v1/auth/callback"
     state = secrets.token_urlsafe(16)
 
     is_production = settings.app_env == "production"
@@ -84,7 +84,7 @@ async def auth_callback(
     if not state or not cookie_state or state != cookie_state:
         return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
 
-    redirect_uri = str(request.url_for("auth_callback"))
+    redirect_uri = f"{settings.frontend_url}/api/v1/auth/callback"
     try:
         token_data = await exchange_code_for_tokens(settings=settings, code=code, redirect_uri=redirect_uri)
         access_token = token_data.get("access_token")
