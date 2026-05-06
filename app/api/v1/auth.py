@@ -91,15 +91,14 @@ async def auth_callback(
         if not access_token:
             return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
         profile = await fetch_google_userinfo(access_token=access_token)
+        user = get_or_create_google_user(db, profile=profile)
+        jwt_token = create_access_token(
+            data={"sub": str(user.id), "email": user.email, "role": user.role},
+            settings=settings,
+        )
     except Exception as exc:
-        logger.exception("OAuth token exchange failed: %s", exc)
+        logger.exception("OAuth callback failed: %s", exc)
         return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
-
-    user = get_or_create_google_user(db, profile=profile)
-    jwt_token = create_access_token(
-        data={"sub": str(user.id), "email": user.email, "role": user.role},
-        settings=settings,
-    )
 
     # Hash fragment is never sent to the server, so the token won't appear in logs or Referer headers.
     frontend_success_url = f"{settings.frontend_url}/auth/callback#{jwt_token}"
