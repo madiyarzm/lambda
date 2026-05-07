@@ -76,47 +76,28 @@ async def auth_callback(
     state = request.query_params.get("state")
     cookie_state = request.cookies.get("oauth_state")
 
-    def err(reason: str) -> RedirectResponse:
-        url = f"{settings.frontend_url}/auth/callback?error={reason}"
-        logger.warning("OAuth callback error: %s | state=%s cookie=%s code_present=%s",
-                       reason, state, cookie_state, bool(code))
-        return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
+    error_url = f"{settings.frontend_url}/auth/callback?error=auth_failed"
 
-    if not code:
-        return err("no_code")
-
-    if not state or not cookie_state:
-        return err("no_state_cookie")
-
-    if state != cookie_state:
-        return err("state_mismatch")
-
-    import httpx as _httpx
+    if not code or not state or not cookie_state or state != cookie_state:
+        logger.warning("OAuth callback rejected: code=%s state_match=%s", bool(code), state == cookie_state)
+        return RedirectResponse(url=error_url, status_code=status.HTTP_302_FOUND)
 
     redirect_uri = f"{settings.frontend_url}/api/v1/auth/callback"
     try:
         token_data = await exchange_code_for_tokens(settings=settings, code=code, redirect_uri=redirect_uri)
         access_token = token_data.get("access_token")
         if not access_token:
-            return err("no_access_token")
+            logger.warning("No access_token in Google response")
+            return RedirectResponse(url=error_url, status_code=status.HTTP_302_FOUND)
         profile = await fetch_google_userinfo(access_token=access_token)
-    except _httpx.HTTPStatusError as exc:
-        body = exc.response.text[:300].replace(" ", "_")
-        logger.exception("Google API error %s: %s", exc.response.status_code, exc.response.text)
-        return err(f"google_{exc.response.status_code}_{body}")
-    except Exception as exc:
-        logger.exception("Token exchange failed: %s", exc)
-        return err(f"exchange_{type(exc).__name__}")
-
-    try:
         user = get_or_create_google_user(db, profile=profile)
         jwt_token = create_access_token(
             data={"sub": str(user.id), "email": user.email, "role": user.role},
             settings=settings,
         )
     except Exception as exc:
-        logger.exception("User/JWT creation failed: %s", exc)
-        return err(f"db_{type(exc).__name__}")
+        logger.exception("OAuth login failed: %s", exc)
+        return RedirectResponse(url=error_url, status_code=status.HTTP_302_FOUND)
 
     # Hash fragment is never sent to the server, so the token won't appear in logs or Referer headers.
     frontend_success_url = f"{settings.frontend_url}/auth/callback#{jwt_token}"

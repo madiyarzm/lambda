@@ -1,4 +1,4 @@
-# Lambda — Session Context
+# Chalk — Session Context
 
 Collaborative coding classroom platform. Teachers create groups/classrooms/assignments, students submit Python code, earn XP, get AI hints. Goal: demo-ready for a16z talent show.
 
@@ -46,7 +46,7 @@ lambda/
 ├── alembic/versions/             # DB migrations (001 groups, 002 feedback, 003 xp+cosmetics)
 ├── design_handoff_chalk*/        # Design reference files (HTML/JSX mockups)
 ├── Dockerfile                    # Multi-stage: Node builds Vite → Python, runs alembic+uvicorn
-├── render.yaml                   # Render IaC (free web service)
+├── northflank.yaml               # Northflank service spec + manual setup steps
 └── .github/workflows/deploy.yml  # CI: typecheck + pytest on PR; deploy hook on main push
 ```
 
@@ -171,25 +171,32 @@ WS   /ws/collab/{room_id}                 # Yjs relay
 
 ## Deployment (Northflank + Supabase)
 
-- **Northflank**: free always-on combined service (build + deploy), Docker runtime, single service
+- **Live URL**: `https://strawie.dev` (custom domain, SSL active)
+- **Fallback URL**: `https://http--lambda-app--ksd5wrhcp6zn.code.run`
+- **Northflank**: project `lambda`, service `lambda-app` — free always-on combined service, Docker runtime
 - **Database**: Supabase PostgreSQL, project ref `nxlrcalepiudkhkbsdss`
 - **CI/CD**: GitHub Actions — tests + typecheck on PR; on main push triggers Northflank build via REST API
 - **No keep-alive needed**: Northflank free tier is always-on (no sleep)
-- **Config reference**: `northflank.yaml` (setup docs + service spec)
+- **Config reference**: `northflank.yaml`
 
-**GitHub secrets needed (repo → Settings → Secrets → Actions):**
-- `NORTHFLANK_API_KEY` — from Northflank account settings → API tokens
-- `NORTHFLANK_PROJECT_ID` — shown in Northflank project URL/dashboard
-- `NORTHFLANK_SERVICE_ID` — shown in service URL (e.g. `lambda-app`)
+**GitHub secrets (already set):**
+- `NORTHFLANK_API_KEY`, `NORTHFLANK_PROJECT_ID` (`lambda`), `NORTHFLANK_SERVICE_ID` (`lambda-app`)
 
-**Northflank env vars (set in service dashboard → Environment):**
-- `DATABASE_URL` — Supabase direct connection (port 5432)
+**Northflank env vars (in secret group `lambda-env`, unrestricted → auto-injected):**
+- `DATABASE_URL` — `postgresql://postgres:***@db.nxlrcalepiudkhkbsdss.supabase.co:5432/postgres`
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
 - `SECRET_KEY`
-- `ANTHROPIC_API_KEY` (optional)
-- `FRONTEND_URL` — `https://<your-service>.code.run` (fill after first deploy)
+- `FRONTEND_URL` — `https://strawie.dev`
 - `ENV=production`
 - `SANDBOX_USE_DOCKER=false`
+
+**Google OAuth (Google Cloud Console → OAuth client):**
+- Authorized JS origin: `https://strawie.dev`
+- Authorized redirect URI: `https://strawie.dev/api/v1/auth/google/callback`
+
+**Custom domain setup (strawie.dev on Cloudflare):**
+- TXT `verify-imbeuiulu4q56yoz9lhehjk0` → Northflank verification token (already verified)
+- CNAME `@` → `strawie.dev.madi-l2kb.dns.northflank.app` (DNS only, no proxy)
 
 **Migrations**: 3 Alembic versions exist. Run via `alembic upgrade head` (Dockerfile does this on startup).
 
