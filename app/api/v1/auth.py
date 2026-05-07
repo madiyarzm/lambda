@@ -91,6 +91,8 @@ async def auth_callback(
     if state != cookie_state:
         return err("state_mismatch")
 
+    import httpx as _httpx
+
     redirect_uri = f"{settings.frontend_url}/api/v1/auth/callback"
     try:
         token_data = await exchange_code_for_tokens(settings=settings, code=code, redirect_uri=redirect_uri)
@@ -98,14 +100,23 @@ async def auth_callback(
         if not access_token:
             return err("no_access_token")
         profile = await fetch_google_userinfo(access_token=access_token)
+    except _httpx.HTTPStatusError as exc:
+        body = exc.response.text[:300].replace(" ", "_")
+        logger.exception("Google API error %s: %s", exc.response.status_code, exc.response.text)
+        return err(f"google_{exc.response.status_code}_{body}")
+    except Exception as exc:
+        logger.exception("Token exchange failed: %s", exc)
+        return err(f"exchange_{type(exc).__name__}")
+
+    try:
         user = get_or_create_google_user(db, profile=profile)
         jwt_token = create_access_token(
             data={"sub": str(user.id), "email": user.email, "role": user.role},
             settings=settings,
         )
     except Exception as exc:
-        logger.exception("OAuth callback failed: %s", exc)
-        return err(f"exception")
+        logger.exception("User/JWT creation failed: %s", exc)
+        return err(f"db_{type(exc).__name__}")
 
     # Hash fragment is never sent to the server, so the token won't appear in logs or Referer headers.
     frontend_success_url = f"{settings.frontend_url}/auth/callback#{jwt_token}"
