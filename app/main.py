@@ -92,7 +92,15 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:
-        return {"status": "ok", "service": "chalk"}
+        from sqlalchemy import text
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            return {"status": "ok", "service": "chalk"}
+        except Exception as exc:
+            return {"status": "db_error", "detail": str(exc)}
+        finally:
+            db.close()
 
     # Serve frontend static files.
     # Assets (JS/CSS/images) are served directly; all other paths fall back to
