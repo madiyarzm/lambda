@@ -5,7 +5,9 @@
  */
 
 import React, { useMemo, useRef, useEffect } from "react";
-import CodeMirror, { createTheme } from "@uiw/react-codemirror";
+import CodeMirror from "@uiw/react-codemirror";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { python } from "@codemirror/lang-python";
 import { bracketMatching } from "@codemirror/language";
@@ -39,63 +41,72 @@ const PYTHON_SNIPPETS = [
   { label: "if", type: "keyword", apply: "if ", detail: "Keyword", info: "Conditional branch: if condition:" },
 ];
 
-const strawieTheme = createTheme({
-  theme: "dark",
-  settings: {
-    background: "#0d1117",
-    backgroundImage: "",
-    foreground: "#e2e8f0",
-    caret: "#818cf8",
-    selection: "#818cf830",
-    selectionMatch: "#818cf820",
-    lineHighlight: "#ffffff07",
-    gutterBackground: "#0d1117",
-    gutterForeground: "#475569",
-    gutterBorder: "transparent",
-    gutterActiveForeground: "#94a3b8",
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+const strawieEditorTheme = EditorView.theme({
+  "&": {
+    backgroundColor: "#0d1117",
+    color: "#e2e8f0",
+    height: "100%",
   },
-  styles: [
-    { tag: t.comment, color: "#475569", fontStyle: "italic" },
-    { tag: t.lineComment, color: "#475569", fontStyle: "italic" },
-    { tag: t.blockComment, color: "#475569", fontStyle: "italic" },
-    { tag: t.keyword, color: "#818cf8", fontWeight: "600" },
-    { tag: t.controlKeyword, color: "#a78bfa", fontWeight: "600" },
-    { tag: t.operatorKeyword, color: "#a78bfa" },
-    { tag: t.definitionKeyword, color: "#818cf8", fontWeight: "600" },
-    { tag: t.moduleKeyword, color: "#818cf8" },
-    { tag: t.string, color: "#34d399" },
-    { tag: t.special(t.string), color: "#34d399" },
-    { tag: t.regexp, color: "#34d399" },
-    { tag: t.number, color: "#fb923c" },
-    { tag: t.integer, color: "#fb923c" },
-    { tag: t.float, color: "#fb923c" },
-    { tag: t.bool, color: "#f472b6" },
-    { tag: t.null, color: "#f472b6" },
-    { tag: t.function(t.variableName), color: "#38bdf8" },
-    { tag: t.function(t.propertyName), color: "#38bdf8" },
-    { tag: t.definition(t.function(t.variableName)), color: "#38bdf8", fontWeight: "600" },
-    { tag: t.definition(t.variableName), color: "#e2e8f0" },
-    { tag: t.variableName, color: "#e2e8f0" },
-    { tag: t.propertyName, color: "#94a3b8" },
-    { tag: t.className, color: "#fbbf24", fontWeight: "600" },
-    { tag: t.typeName, color: "#fbbf24" },
-    { tag: t.tagName, color: "#f472b6" },
-    { tag: t.attributeName, color: "#38bdf8" },
-    { tag: t.operator, color: "#94a3b8" },
-    { tag: t.punctuation, color: "#64748b" },
-    { tag: t.bracket, color: "#94a3b8" },
-    { tag: t.angleBracket, color: "#94a3b8" },
-    { tag: t.squareBracket, color: "#94a3b8" },
-    { tag: t.paren, color: "#94a3b8" },
-    { tag: t.derefOperator, color: "#94a3b8" },
-    { tag: t.separator, color: "#64748b" },
-    { tag: t.self, color: "#f472b6", fontStyle: "italic" },
-    { tag: t.atom, color: "#f472b6" },
-    { tag: t.meta, color: "#64748b" },
-    { tag: t.invalid, color: "#f87171", textDecoration: "underline" },
-  ],
-});
+  ".cm-content": {
+    caretColor: "#818cf8",
+    fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace",
+  },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "#818cf8" },
+  "&.cm-focused .cm-selectionBackground, ::selection": {
+    backgroundColor: "#818cf830",
+  },
+  ".cm-selectionBackground": { backgroundColor: "#818cf820" },
+  ".cm-activeLine": { backgroundColor: "#ffffff07" },
+  ".cm-activeLineGutter": { backgroundColor: "#ffffff07", color: "#94a3b8" },
+  ".cm-gutters": {
+    backgroundColor: "#0d1117",
+    color: "#475569",
+    border: "none",
+    borderRight: "1px solid #1e293b",
+  },
+  ".cm-lineNumbers .cm-gutterElement": { padding: "0 12px 0 8px" },
+  ".cm-scroller": { overflow: "auto" },
+  ".cm-matchingBracket": { backgroundColor: "#818cf840", outline: "1px solid #818cf880" },
+  ".cm-tooltip": {
+    backgroundColor: "#1e293b",
+    border: "1px solid #334155",
+    borderRadius: "6px",
+  },
+  ".cm-tooltip-autocomplete ul li[aria-selected]": {
+    backgroundColor: "#818cf820",
+    color: "#e2e8f0",
+  },
+}, { dark: true });
+
+const strawieHighlight = HighlightStyle.define([
+  { tag: t.comment, color: "#475569", fontStyle: "italic" },
+  { tag: [t.lineComment, t.blockComment], color: "#475569", fontStyle: "italic" },
+  { tag: t.keyword, color: "#818cf8", fontWeight: "600" },
+  { tag: [t.controlKeyword, t.operatorKeyword], color: "#a78bfa", fontWeight: "600" },
+  { tag: [t.definitionKeyword, t.moduleKeyword], color: "#818cf8" },
+  { tag: t.string, color: "#34d399" },
+  { tag: [t.special(t.string), t.regexp], color: "#2dd4bf" },
+  { tag: [t.number, t.integer, t.float], color: "#fb923c" },
+  { tag: [t.bool, t.null], color: "#f472b6" },
+  { tag: t.function(t.variableName), color: "#38bdf8" },
+  { tag: t.function(t.propertyName), color: "#38bdf8" },
+  { tag: t.definition(t.function(t.variableName)), color: "#38bdf8", fontWeight: "600" },
+  { tag: t.definition(t.variableName), color: "#e2e8f0" },
+  { tag: t.variableName, color: "#e2e8f0" },
+  { tag: t.propertyName, color: "#94a3b8" },
+  { tag: [t.className, t.definition(t.className)], color: "#fbbf24", fontWeight: "600" },
+  { tag: t.typeName, color: "#fbbf24" },
+  { tag: t.operator, color: "#94a3b8" },
+  { tag: [t.bracket, t.paren, t.squareBracket, t.angleBracket], color: "#94a3b8" },
+  { tag: t.punctuation, color: "#64748b" },
+  { tag: t.separator, color: "#64748b" },
+  { tag: t.self, color: "#f472b6", fontStyle: "italic" },
+  { tag: t.atom, color: "#f472b6" },
+  { tag: t.meta, color: "#64748b" },
+  { tag: t.invalid, color: "#f87171", textDecoration: "underline" },
+]);
+
+const strawieTheme = [strawieEditorTheme, syntaxHighlighting(strawieHighlight)];
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
@@ -148,6 +159,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         activateOnTyping: true,
       }),
       yCollab(ytext, awareness ?? undefined),
+      ...strawieTheme,
     ],
     [ytext, awareness],
   );
@@ -174,7 +186,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         key={`${roomId || "local"}:${awareness ? "awareness" : "plain"}`}
         height="100%"
         className={`flex-1 min-h-0 text-[13px] md:text-sm font-mono ${className}`}
-        theme={strawieTheme}
+        theme="none"
         extensions={extensions}
         basicSetup={{
           lineNumbers: true,
