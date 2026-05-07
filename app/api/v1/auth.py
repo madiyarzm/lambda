@@ -76,20 +76,27 @@ async def auth_callback(
     state = request.query_params.get("state")
     cookie_state = request.cookies.get("oauth_state")
 
-    frontend_error_url = f"{settings.frontend_url}/auth/callback?error=auth_failed"
+    def err(reason: str) -> RedirectResponse:
+        url = f"{settings.frontend_url}/auth/callback?error={reason}"
+        logger.warning("OAuth callback error: %s | state=%s cookie=%s code_present=%s",
+                       reason, state, cookie_state, bool(code))
+        return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
 
     if not code:
-        return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
+        return err("no_code")
 
-    if not state or not cookie_state or state != cookie_state:
-        return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
+    if not state or not cookie_state:
+        return err("no_state_cookie")
+
+    if state != cookie_state:
+        return err("state_mismatch")
 
     redirect_uri = f"{settings.frontend_url}/api/v1/auth/callback"
     try:
         token_data = await exchange_code_for_tokens(settings=settings, code=code, redirect_uri=redirect_uri)
         access_token = token_data.get("access_token")
         if not access_token:
-            return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
+            return err("no_access_token")
         profile = await fetch_google_userinfo(access_token=access_token)
         user = get_or_create_google_user(db, profile=profile)
         jwt_token = create_access_token(
@@ -98,7 +105,7 @@ async def auth_callback(
         )
     except Exception as exc:
         logger.exception("OAuth callback failed: %s", exc)
-        return RedirectResponse(url=frontend_error_url, status_code=status.HTTP_302_FOUND)
+        return err(f"exception")
 
     # Hash fragment is never sent to the server, so the token won't appear in logs or Referer headers.
     frontend_success_url = f"{settings.frontend_url}/auth/callback#{jwt_token}"
