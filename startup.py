@@ -27,9 +27,13 @@ def main() -> None:
             ))
             has_version_table = (row.scalar() or 0) > 0
 
-        if not has_version_table:
-            print("[startup] No alembic_version table found — DB was initialized via create_all.")
-            print("[startup] Stamping at head so upgrade head is a no-op.")
+            stamped = False
+            if has_version_table:
+                row2 = conn.execute(text("SELECT COUNT(*) FROM alembic_version"))
+                stamped = (row2.scalar() or 0) > 0
+
+        if not has_version_table or not stamped:
+            print("[startup] alembic_version missing or empty — stamping at head.")
             _run(["alembic", "stamp", "head"])
 
         print("[startup] Running alembic upgrade head…")
