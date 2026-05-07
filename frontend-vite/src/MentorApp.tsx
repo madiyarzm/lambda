@@ -2113,7 +2113,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   {terminalEntries.map(entry => (
                     <div key={entry.id}>
                       <div style={{ color: "var(--subtle)" }}>
-                        chalk@runtime:~$ {entry.type === "run" ? `python ${entry.fileName}` : `submit ${entry.fileName}`}
+                        strawie@runtime:~$ {entry.type === "run" ? `python ${entry.fileName}` : `submit ${entry.fileName}`}
                         <span className="ml-2" style={{ color: "var(--border-2)" }}>{entry.timestamp}</span>
                       </div>
                       <pre

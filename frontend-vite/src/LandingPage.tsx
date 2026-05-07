@@ -158,7 +158,7 @@ function HeroMockup() {
         </div>
         <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
           <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "4px 14px", fontSize: 11, color: "#475569", fontFamily: "Plus Jakarta Sans, sans-serif" }}>
-            fibonacci.py — Chalk
+            fibonacci.py — Strawie
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -361,14 +361,14 @@ export const LandingPage: React.FC = () => {
         <div style={{ textAlign: "center", marginBottom: 64 }}>
           <div style={{ ...reveal(steps.visible, 0), fontSize: 12, fontWeight: 700, color: "var(--indigo)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>How it works</div>
           <h2 style={{ ...reveal(steps.visible, 0.05), fontSize: 44, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)", margin: "0 0 16px" }}>From zero to coding<br />in 60 seconds.</h2>
-          <p style={{ ...reveal(steps.visible, 0.1), fontSize: 17, color: "var(--text-3)", maxWidth: 480, margin: "0 auto" }}>No installs, no config, no broken environments. Chalk runs in the browser — for everyone.</p>
+          <p style={{ ...reveal(steps.visible, 0.1), fontSize: 17, color: "var(--text-3)", maxWidth: 480, margin: "0 auto" }}>No installs, no config, no broken environments. Strawie runs in the browser — for everyone.</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
           {[
             { n: "01", title: "Create a classroom", desc: "Teachers set up a classroom in seconds and share an invite code with students.", color: "var(--indigo)" },
             { n: "02", title: "Students join instantly", desc: "Open a browser, enter the code. No install, no account setup — coding in seconds.", color: "oklch(0.60 0.22 308)" },
             { n: "03", title: "Code together live", desc: "Everyone edits the same file. See each other's cursors, selections, and changes in real time.", color: "var(--mint)" },
-            { n: "04", title: "Submit & get graded", desc: "Click Submit. Chalk runs the code in a safe sandbox and shows results instantly.", color: "var(--amber)" },
+            { n: "04", title: "Submit & get graded", desc: "Click Submit. Strawie runs the code in a safe sandbox and shows results instantly.", color: "var(--amber)" },
           ].map((s, i) => (
             <StepCard key={s.n} number={s.n} title={s.title} desc={s.desc} color={s.color} visible={steps.visible} delay={0.1 + i * 0.1} />
           ))}
@@ -381,7 +381,7 @@ export const LandingPage: React.FC = () => {
           <div>
             <div style={{ ...reveal(collab.visible, 0), display: "inline-block", background: "var(--mint-10)", color: "var(--mint)", fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 99, marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.08em", border: "1px solid oklch(0.85 0.08 162)" }}>Live collaboration</div>
             <h2 style={{ ...reveal(collab.visible, 0.05), fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)", margin: "0 0 20px", lineHeight: 1.1 }}>See every keystroke, in real time.</h2>
-            <p style={{ ...reveal(collab.visible, 0.1), fontSize: 16, color: "var(--text-2)", lineHeight: 1.7, margin: "0 0 32px" }}>Chalk uses a CRDT engine (the same technology as Figma) so edits never conflict. Every cursor, selection, and change from every user appears instantly — no refreshing, no locking.</p>
+            <p style={{ ...reveal(collab.visible, 0.1), fontSize: 16, color: "var(--text-2)", lineHeight: 1.7, margin: "0 0 32px" }}>Strawie uses a CRDT engine (the same technology as Figma) so edits never conflict. Every cursor, selection, and change from every user appears instantly — no refreshing, no locking.</p>
             <div style={{ ...reveal(collab.visible, 0.15) as React.CSSProperties, display: "flex", flexDirection: "column", gap: 14 }}>
               {[
                 { icon: "●", color: "var(--indigo)", label: "Teacher cursor", desc: "Professors appear in indigo so students always know where they are" },
@@ -441,7 +441,7 @@ export const LandingPage: React.FC = () => {
       <div ref={roles.ref} style={{ maxWidth: 1280, margin: "0 auto", padding: "100px 56px" }}>
         <div style={{ textAlign: "center", marginBottom: 64 }}>
           <h2 style={{ ...reveal(roles.visible, 0), fontSize: 44, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)", margin: "0 0 12px" }}>Built for both sides of the desk.</h2>
-          <p style={{ ...reveal(roles.visible, 0.05), fontSize: 17, color: "var(--text-3)" }}>Chalk adapts to whether you're teaching or learning.</p>
+          <p style={{ ...reveal(roles.visible, 0.05), fontSize: 17, color: "var(--text-3)" }}>Strawie adapts to whether you're teaching or learning.</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           {[
@@ -505,7 +505,7 @@ export const LandingPage: React.FC = () => {
       {/* ── FOOTER ── */}
       <footer style={{ padding: "32px 56px", borderTop: "1px solid var(--border)", background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <ChalkLogo size={26} />
-        <div style={{ fontSize: 12, color: "var(--text-3)" }}>© Chalk 2026</div>
+        <div style={{ fontSize: 12, color: "var(--text-3)" }}>© Strawie 2026</div>
       </footer>
     </div>
   );

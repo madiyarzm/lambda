@@ -1,5 +1,5 @@
 /**
- * API client for Chalk backend.
+ * API client for Strawie backend.
  *
  * Mirrors the backend REST API with typed wrappers.
  */

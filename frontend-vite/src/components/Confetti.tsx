@@ -7,6 +7,7 @@ interface ConfettiProps {
 
 const COLORS = ["#38bdf8", "#818cf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa"];
 const COUNT = 60;
+const STRAWBERRY_COUNT = 18;
 
 function rand(min: number, max: number) {
   return Math.random() * (max - min) + min;
@@ -26,7 +27,8 @@ export const Confetti: React.FC<ConfettiProps> = ({ active, onDone }) => {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 
-    const particles = Array.from({ length: COUNT }, () => ({
+    const confetti = Array.from({ length: COUNT }, () => ({
+      type: "rect" as const,
       x: rand(canvas.width * 0.2, canvas.width * 0.8),
       y: rand(canvas.height * 0.3, canvas.height * 0.6),
       r: rand(4, 9),
@@ -38,6 +40,21 @@ export const Confetti: React.FC<ConfettiProps> = ({ active, onDone }) => {
       spin: rand(-0.2, 0.2),
       angle: rand(0, Math.PI * 2),
     }));
+
+    const strawberries = Array.from({ length: STRAWBERRY_COUNT }, () => ({
+      type: "strawberry" as const,
+      x: rand(canvas.width * 0.15, canvas.width * 0.85),
+      y: rand(canvas.height * 0.25, canvas.height * 0.65),
+      size: rand(16, 26),
+      vx: rand(-3, 3),
+      vy: rand(-9, -3),
+      gravity: rand(0.12, 0.28),
+      alpha: 1,
+      spin: rand(-0.12, 0.12),
+      angle: rand(-0.3, 0.3),
+    }));
+
+    const particles = [...confetti, ...strawberries];
 
     let elapsed = 0;
     const draw = () => {
@@ -56,8 +73,15 @@ export const Confetti: React.FC<ConfettiProps> = ({ active, onDone }) => {
           ctx.globalAlpha = Math.max(0, p.alpha);
           ctx.translate(p.x, p.y);
           ctx.rotate(p.angle);
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.5);
+          if (p.type === "rect") {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.5);
+          } else {
+            ctx.font = `${p.size}px serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🍓", 0, 0);
+          }
           ctx.restore();
         }
       }

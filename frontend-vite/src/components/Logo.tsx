@@ -1,4 +1,4 @@
-export function ChalkLogo({ size = 32 }: { size?: number }) {
+export function StrawieLogoSvg({ size = 32 }: { size?: number }) {
   return (
     <div className="flex items-center gap-2.5">
       <div
@@ -35,8 +35,10 @@ export function ChalkLogo({ size = 32 }: { size?: number }) {
           lineHeight: 1,
         }}
       >
-        Chalk
+        Strawie
       </span>
     </div>
   );
 }
+
+export { StrawieLogoSvg as ChalkLogo };

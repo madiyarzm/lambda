@@ -5,7 +5,8 @@
  */
 
 import React, { useMemo, useRef, useEffect } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { createTheme } from "@uiw/react-codemirror";
+import { tags as t } from "@lezer/highlight";
 import { python } from "@codemirror/lang-python";
 import { bracketMatching } from "@codemirror/language";
 import {
@@ -37,6 +38,64 @@ const PYTHON_SNIPPETS = [
   { label: "for", type: "keyword", apply: "for ", detail: "Keyword", info: "Loop keyword: for item in iterable:" },
   { label: "if", type: "keyword", apply: "if ", detail: "Keyword", info: "Conditional branch: if condition:" },
 ];
+
+const strawieTheme = createTheme({
+  theme: "dark",
+  settings: {
+    background: "#0d1117",
+    backgroundImage: "",
+    foreground: "#e2e8f0",
+    caret: "#818cf8",
+    selection: "#818cf830",
+    selectionMatch: "#818cf820",
+    lineHighlight: "#ffffff07",
+    gutterBackground: "#0d1117",
+    gutterForeground: "#475569",
+    gutterBorder: "transparent",
+    gutterActiveForeground: "#94a3b8",
+    fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+  },
+  styles: [
+    { tag: t.comment, color: "#475569", fontStyle: "italic" },
+    { tag: t.lineComment, color: "#475569", fontStyle: "italic" },
+    { tag: t.blockComment, color: "#475569", fontStyle: "italic" },
+    { tag: t.keyword, color: "#818cf8", fontWeight: "600" },
+    { tag: t.controlKeyword, color: "#a78bfa", fontWeight: "600" },
+    { tag: t.operatorKeyword, color: "#a78bfa" },
+    { tag: t.definitionKeyword, color: "#818cf8", fontWeight: "600" },
+    { tag: t.moduleKeyword, color: "#818cf8" },
+    { tag: t.string, color: "#34d399" },
+    { tag: t.special(t.string), color: "#34d399" },
+    { tag: t.regexp, color: "#34d399" },
+    { tag: t.number, color: "#fb923c" },
+    { tag: t.integer, color: "#fb923c" },
+    { tag: t.float, color: "#fb923c" },
+    { tag: t.bool, color: "#f472b6" },
+    { tag: t.null, color: "#f472b6" },
+    { tag: t.function(t.variableName), color: "#38bdf8" },
+    { tag: t.function(t.propertyName), color: "#38bdf8" },
+    { tag: t.definition(t.function(t.variableName)), color: "#38bdf8", fontWeight: "600" },
+    { tag: t.definition(t.variableName), color: "#e2e8f0" },
+    { tag: t.variableName, color: "#e2e8f0" },
+    { tag: t.propertyName, color: "#94a3b8" },
+    { tag: t.className, color: "#fbbf24", fontWeight: "600" },
+    { tag: t.typeName, color: "#fbbf24" },
+    { tag: t.tagName, color: "#f472b6" },
+    { tag: t.attributeName, color: "#38bdf8" },
+    { tag: t.operator, color: "#94a3b8" },
+    { tag: t.punctuation, color: "#64748b" },
+    { tag: t.bracket, color: "#94a3b8" },
+    { tag: t.angleBracket, color: "#94a3b8" },
+    { tag: t.squareBracket, color: "#94a3b8" },
+    { tag: t.paren, color: "#94a3b8" },
+    { tag: t.derefOperator, color: "#94a3b8" },
+    { tag: t.separator, color: "#64748b" },
+    { tag: t.self, color: "#f472b6", fontStyle: "italic" },
+    { tag: t.atom, color: "#f472b6" },
+    { tag: t.meta, color: "#64748b" },
+    { tag: t.invalid, color: "#f87171", textDecoration: "underline" },
+  ],
+});
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
@@ -96,7 +155,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   return (
     <div className="h-full flex flex-col">
       {/* Presence bar: always rendered to avoid layout shift */}
-      <div className="flex items-center gap-3 px-3 h-6 min-h-[24px] border-b border-slate-800 bg-slate-900/80 text-[10px] text-slate-400">
+      <div className="flex items-center gap-3 px-3 h-6 min-h-[24px] border-b border-slate-800 bg-[#0d1117] text-[10px] text-slate-400">
         {peers.map((p) => (
           <span
             key={p.clientId}
@@ -115,7 +174,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         key={`${roomId || "local"}:${awareness ? "awareness" : "plain"}`}
         height="100%"
         className={`flex-1 min-h-0 text-[13px] md:text-sm font-mono ${className}`}
-        theme="dark"
+        theme={strawieTheme}
         extensions={extensions}
         basicSetup={{
           lineNumbers: true,
