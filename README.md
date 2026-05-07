@@ -1,6 +1,6 @@
 # Lambda — Collaborative Coding Classroom
 
-Hi
+M
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat&logo=python&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat&logo=typescript&logoColor=white)
