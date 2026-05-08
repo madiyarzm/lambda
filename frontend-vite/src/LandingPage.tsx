@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Code2,
@@ -9,13 +9,13 @@ import {
   KeyRound,
   Activity,
   Terminal,
+  PenLine,
+  Trophy,
 } from "lucide-react";
 import { googleLogin, isLoggedIn } from "./lib/api";
 import { StrawieLogoSvg } from "./components/Logo";
 
 import strawieTeaching from "./assets/mascots/strawie-teaching.png";
-import strawieCoding from "./assets/mascots/strawie-coding.png";
-import berryLearning from "./assets/mascots/berry-learning.png";
 import berryFocused from "./assets/mascots/berry-focused.png";
 import berryAsking from "./assets/mascots/berry-asking.png";
 
@@ -119,13 +119,19 @@ type EditorProps = {
 
 const EditorCard: React.FC<EditorProps> = ({ className = "", showStrawie = false }) => {
   const [typed, setTyped] = useState(0);
+  const [pausing, setPausing] = useState(false);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setTyped((n) => (n < TYPING_FULL.length ? n + 1 : 0));
-    }, 95);
-    return () => clearInterval(id);
-  }, []);
+    if (pausing) {
+      const t = setTimeout(() => { setTyped(0); setPausing(false); }, 2500);
+      return () => clearTimeout(t);
+    }
+    if (typed < TYPING_FULL.length) {
+      const t = setTimeout(() => setTyped((n) => n + 1), 80);
+      return () => clearTimeout(t);
+    }
+    setPausing(true);
+  }, [typed, pausing]);
 
   const lines = LESSON_LINES.map((line, i) =>
     i === TYPING_LINE_INDEX
@@ -135,15 +141,9 @@ const EditorCard: React.FC<EditorProps> = ({ className = "", showStrawie = false
 
   return (
     <div className={`relative ${className}`}>
-      {/* soft halo */}
-      <div className="absolute -inset-12 -z-10 opacity-70 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-72 h-72 rounded-full bg-berry-blue/15 blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-72 h-72 rounded-full bg-berry-purple/15 blur-3xl" />
-      </div>
-
       <div
-        className="rounded-[22px] bg-white/80 backdrop-blur-xl
-                   border border-white/80
+        className="rounded-[22px] bg-white
+                   border border-apple-line
                    shadow-lift-xl
                    overflow-hidden"
       >
@@ -275,13 +275,8 @@ const CollabCursor: React.FC<{ color: string; label: string; offsetCh: number }>
 
 // ── Hero ────────────────────────────────────────────────────────────────
 const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const editorY = useTransform(scrollYProgress, [0, 1], [0, -60]);
-  const editorScale = useTransform(scrollYProgress, [0, 1], [1, 0.96]);
-
   return (
-    <section ref={ref} className="relative pt-36 pb-28 px-6 overflow-hidden">
+    <section className="relative pt-36 pb-28 px-6 overflow-hidden">
       {/* subtle background wash */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-32 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] bg-berry-blue-soft/60 blur-3xl rounded-full" />
@@ -361,7 +356,6 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
 
         {/* centerpiece editor */}
         <motion.div
-          style={{ y: editorY, scale: editorScale }}
           initial={{ opacity: 0, y: 60, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ ...SPRING, delay: 0.45 }}
@@ -444,7 +438,7 @@ const Bento: React.FC = () => (
       <SectionHeader
         eyebrow="Features"
         title={<>Everything a small classroom needs.</>}
-        sub="No add-ons. No marketplace. Strawie ships with the parts you'd otherwise stitch together yourself."
+        sub="Built-in, not bolted on. Strawie ships with everything a small classroom needs — editor, runner, grader, and hints — no integrations required."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
@@ -543,20 +537,52 @@ const Bento: React.FC = () => (
           </div>
         </BentoTile>
 
-        {/* 6. Streaks — wide */}
+        {/* 6. Drawing Mode — fills row 3 cols 5-6 */}
+        <BentoTile className="md:col-span-2" delay={0.22}>
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-coral uppercase tracking-wider mb-2">
+            <PenLine size={14} /> Drawing
+          </div>
+          <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
+            Diagram together.
+          </h3>
+          <div className="relative rounded-xl border border-apple-line bg-apple-mist/30 h-[90px] overflow-hidden">
+            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 90" preserveAspectRatio="none">
+              <path d="M 15 68 Q 50 18 90 45 T 155 35" stroke="#5B7FFF" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.85"/>
+              <path d="M 40 75 Q 75 35 115 55 T 185 42" stroke="#9B7BFF" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.85"/>
+              <circle cx="155" cy="35" r="4.5" fill="#5B7FFF" opacity="0.9"/>
+              <circle cx="185" cy="42" r="4.5" fill="#9B7BFF" opacity="0.9"/>
+            </svg>
+            <div className="absolute top-1.5 right-2 flex gap-1">
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#5B7FFF" }}>Strawie</span>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#9B7BFF" }}>Aigerim</span>
+            </div>
+          </div>
+          <p className="text-[11px] text-apple-ink-3 mt-2 leading-snug">
+            Miro-style canvas, real-time. Sketch diagrams while you code.
+          </p>
+        </BentoTile>
+
+        {/* 7. Streaks — wide */}
         <BentoTile className="md:col-span-4" delay={0.25}>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-amber uppercase tracking-wider mb-2">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-amber uppercase tracking-wider mb-1">
                 <Activity size={14} /> Streaks &amp; XP
               </div>
               <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink">
                 Effort visible from a glance.
               </h3>
             </div>
-            <div className="text-[12px] text-apple-ink-3">Last 12 weeks</div>
+            <div className="text-right">
+              <div className="text-[12px] font-bold text-apple-ink">Lv 3 · Coder</div>
+              <div className="text-[11px] text-apple-ink-4">720 / 1500 XP</div>
+            </div>
           </div>
-          <div className="flex gap-[3px] mt-2">
+          {/* XP progress bar */}
+          <div className="h-1.5 rounded-full bg-apple-mist overflow-hidden mb-4">
+            <div className="h-full rounded-full bg-gradient-to-r from-berry-blue to-berry-purple" style={{ width: "48%" }} />
+          </div>
+          <div className="flex gap-[3px]">
             {Array.from({ length: 12 }).map((_, w) => (
               <div key={w} className="flex flex-col gap-[3px]">
                 {Array.from({ length: 7 }).map((_, d) => {
@@ -572,6 +598,46 @@ const Bento: React.FC = () => (
                     <div key={d} className={`w-3 h-3 rounded-[3px] ${palette[lvl]}`} />
                   );
                 })}
+              </div>
+            ))}
+          </div>
+        </BentoTile>
+
+        {/* 8. Achievements — fills row 4 cols 5-6 */}
+        <BentoTile className="md:col-span-2" delay={0.28}>
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-amber uppercase tracking-wider mb-2">
+            <Trophy size={14} /> Achievements
+          </div>
+          <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
+            Earn as you learn.
+          </h3>
+          <div className="flex gap-2">
+            {[
+              { emoji: "🔥", label: "7-day streak", bg: "bg-orange-50", border: "border-orange-100", text: "text-orange-600" },
+              { emoji: "⚡", label: "First solve", bg: "bg-blue-50", border: "border-blue-100", text: "text-berry-blue" },
+              { emoji: "🏆", label: "Top scorer", bg: "bg-yellow-50", border: "border-yellow-100", text: "text-yellow-600" },
+            ].map((b) => (
+              <div
+                key={b.label}
+                className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border flex-1 ${b.bg} ${b.border}`}
+              >
+                <span className="text-xl leading-none">{b.emoji}</span>
+                <span className={`text-[9px] font-semibold leading-tight text-center ${b.text}`}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex gap-2">
+            {[
+              { emoji: "🌟", label: "100 XP", locked: false },
+              { emoji: "🧠", label: "Hint master", locked: false },
+              { emoji: "🎯", label: "Perfect run", locked: true },
+            ].map((b) => (
+              <div
+                key={b.label}
+                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl border flex-1 ${b.locked ? "bg-apple-mist border-apple-line opacity-40" : "bg-white border-apple-line"}`}
+              >
+                <span className="text-base leading-none">{b.emoji}</span>
+                <span className="text-[9px] font-medium text-apple-ink-3 text-center leading-tight">{b.label}</span>
               </div>
             ))}
           </div>
@@ -718,54 +784,6 @@ const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
   );
 };
 
-// ── Meet the class (mascot row) ────────────────────────────────────────
-const MeetTheClass: React.FC = () => {
-  const cast = [
-    { src: strawieTeaching, name: "Strawie", role: "the teacher" },
-    { src: strawieCoding, name: "Strawie", role: "at the keyboard" },
-    { src: berryLearning, name: "Bay", role: "learning" },
-    { src: berryFocused, name: "Rasp", role: "focused" },
-    { src: berryAsking, name: "Cap", role: "asking" },
-  ];
-  return (
-    <section className="px-6 py-28 bg-apple-mist/40 border-y border-apple-line">
-      <div className="max-w-[1180px] mx-auto">
-        <SectionHeader
-          eyebrow="The cast"
-          title={<>Meet the class.</>}
-          sub="Strawie teaches. The Berries learn. The classroom is warmer when there's someone in it with you."
-        />
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          {cast.map((c, i) => (
-            <motion.div
-              key={c.name + i}
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{ ...SPRING, delay: i * 0.06 }}
-              whileHover={{ y: -6, rotate: -2 }}
-              className="rounded-[22px] bg-white border border-apple-line shadow-lift-sm
-                         p-5 flex flex-col items-center gap-3"
-            >
-              <div className="w-full aspect-square rounded-2xl overflow-hidden bg-apple-mist">
-                <img
-                  src={c.src}
-                  alt={c.name}
-                  className="w-full h-full object-cover object-[50%_55%]"
-                />
-              </div>
-              <div className="text-center">
-                <div className="text-[14px] font-[700] text-apple-ink">{c.name}</div>
-                <div className="text-[12px] text-apple-ink-4">{c.role}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
-
 // ── CTA ────────────────────────────────────────────────────────────────
 const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
   <section className="px-6 py-32">
@@ -853,7 +871,6 @@ export const LandingPage: React.FC = () => {
       <Bento />
       <Steps />
       <Roles onCta={googleLogin} />
-      <MeetTheClass />
       <CTA onCta={googleLogin} />
       <Footer />
     </div>
