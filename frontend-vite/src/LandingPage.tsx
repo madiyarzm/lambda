@@ -112,12 +112,7 @@ const Nav: React.FC<{ onSignIn: () => void }> = ({ onSignIn }) => (
 );
 
 // ── Code Editor card ────────────────────────────────────────────────────
-type EditorProps = {
-  className?: string;
-  showStrawie?: boolean;
-};
-
-const EditorCard: React.FC<EditorProps> = ({ className = "", showStrawie = false }) => {
+const EditorCard: React.FC<{ className?: string }> = ({ className = "" }) => {
   const [typed, setTyped] = useState(0);
   const [pausing, setPausing] = useState(false);
 
@@ -224,22 +219,6 @@ const EditorCard: React.FC<EditorProps> = ({ className = "", showStrawie = false
         </div>
       </div>
 
-      {/* Strawie peeking from behind the card */}
-      {showStrawie && (
-        <motion.div
-          initial={{ opacity: 0, y: 30, rotate: -10 }}
-          animate={{ opacity: 1, y: 0, rotate: -6 }}
-          transition={{ ...SPRING, delay: 0.5 }}
-          className="absolute -bottom-12 -left-10 w-44 h-44 pointer-events-none"
-        >
-          <img
-            src={strawieTeaching}
-            alt="Strawie the teacher"
-            className="w-full h-full object-cover object-[50%_55%] rounded-[28px]
-                       drop-shadow-[0_18px_30px_rgba(15,23,42,0.18)]"
-          />
-        </motion.div>
-      )}
     </div>
   );
 };
@@ -271,6 +250,205 @@ const CollabCursor: React.FC<{ color: string; label: string; offsetCh: number }>
       {label}
     </span>
   </>
+);
+
+// ── Lesson 3: Loops — multi-user collab showcase ─────────────────────────
+const L3: Line[] = [
+  [{ t: "# lesson 3 — loops", c: PY.comment }],
+  [
+    { t: "fruits", c: PY.ink },
+    { t: " = ", c: PY.punct },
+    { t: '["apple"', c: PY.string },
+    { t: ", ", c: PY.punct },
+    { t: '"berry"', c: PY.string },
+    { t: ", ", c: PY.punct },
+    { t: '"cherry"', c: PY.string },
+    { t: "]", c: PY.punct },
+  ],
+  [],
+  [
+    { t: "for", c: PY.keyword },
+    { t: " fruit ", c: PY.ink },
+    { t: "in", c: PY.keyword },
+    { t: " fruits:", c: PY.ink },
+  ],
+  [
+    { t: "    ", c: PY.ink },
+    { t: "print", c: PY.fn },
+    { t: "(", c: PY.punct },
+    { t: "fruit", c: PY.ink },
+    { t: ")", c: PY.punct },
+  ],
+  [],
+  [{ t: "# what will this print?", c: PY.comment }],
+];
+
+const COLLAB_USERS = [
+  { color: "#5B7FFF", initial: "S", name: "Strawie" },
+  { color: "#9B7BFF", initial: "A", name: "Aigerim" },
+  { color: "#F97316", initial: "K", name: "Kira" },
+];
+
+const CollabEditorView: React.FC = () => (
+  <div className="rounded-[22px] bg-white border border-apple-line shadow-lift-xl overflow-hidden">
+    {/* titlebar */}
+    <div className="flex items-center gap-3 px-4 h-10 border-b border-apple-line bg-apple-mist/50">
+      <div className="flex gap-1.5">
+        <span className="w-2.5 h-2.5 rounded-full bg-[#FF6058]" />
+        <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
+        <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+      </div>
+      <div className="flex-1 flex justify-center">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-apple-ink-3 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          lesson_3_loops.py
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {COLLAB_USERS.map((u) => (
+          <div
+            key={u.name}
+            className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+            style={{ background: u.color }}
+            title={u.name}
+          >
+            {u.initial}
+          </div>
+        ))}
+        <span className="text-[11px] text-apple-ink-4 ml-0.5">3 live</span>
+      </div>
+    </div>
+    {/* tabs */}
+    <div className="flex items-center px-4 h-9 border-b border-apple-line bg-white/60 gap-1">
+      <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-apple-mist text-[12px] font-medium text-apple-ink-2 font-mono">
+        <span className="w-1.5 h-1.5 rounded-full bg-berry-blue" />
+        lesson_3_loops.py
+      </div>
+      <div className="px-3 py-1 text-[12px] text-apple-ink-4 font-mono cursor-pointer hover:bg-apple-mist/50 rounded-md transition">
+        lesson_4_functions.py
+      </div>
+    </div>
+    {/* editor body */}
+    <div className="flex font-mono text-[13px] leading-[22px]">
+      <div className="py-4 px-3 text-right text-apple-ink-4/70 select-none border-r border-apple-line bg-apple-mist/30">
+        {L3.map((_, i) => <div key={i}>{i + 1}</div>)}
+      </div>
+      <div className="flex-1 py-4 px-5 relative">
+        {L3.map((line, li) => (
+          <div
+            key={li}
+            className={`relative min-h-[22px] ${li === 4 ? "rounded" : ""}`}
+            style={li === 4 ? { background: "rgba(155,123,255,0.08)" } : undefined}
+          >
+            {line.length === 0 ? (
+              <span>&nbsp;</span>
+            ) : (
+              line.map((tok, ti) => (
+                <span key={ti} style={{ color: tok.c }}>{tok.t}</span>
+              ))
+            )}
+            {li === 3 && <CollabCursor color="#5B7FFF" label="Strawie" offsetCh={0} />}
+            {li === 4 && <CollabCursor color="#9B7BFF" label="Aigerim" offsetCh={16} />}
+            {li === 1 && <CollabCursor color="#F97316" label="Kira" offsetCh={37} />}
+          </div>
+        ))}
+      </div>
+    </div>
+    {/* output */}
+    <div className="border-t border-apple-line bg-apple-mist/40 px-5 py-3">
+      <div className="flex items-center gap-2 mb-1.5">
+        <Terminal size={11} className="text-apple-ink-4" />
+        <span className="text-[11px] font-medium text-apple-ink-4 font-mono">Output</span>
+      </div>
+      <div className="font-mono text-[12px] text-apple-ink-2 leading-[20px]">
+        <div>apple</div>
+        <div>berry</div>
+        <div>cherry</div>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Dark mini editor (Bento tile) ─────────────────────────────────────────
+const DK = {
+  comment: "#475569",
+  keyword: "#818cf8",
+  fn: "#38bdf8",
+  string: "#34d399",
+  punct: "#94a3b8",
+  ink: "#e2e8f0",
+  err: "#f87171",
+} as const;
+
+const L2_DARK: Line[] = [
+  [{ t: "# lesson 2 — functions", c: DK.comment }],
+  [
+    { t: "def ", c: DK.keyword },
+    { t: "greet", c: DK.fn },
+    { t: "(", c: DK.punct },
+    { t: "name", c: DK.ink },
+    { t: "):", c: DK.punct },
+  ],
+  [
+    { t: "    return ", c: DK.ink },
+    { t: 'f"Hello, ', c: DK.string },
+    { t: "{name}", c: DK.keyword },
+    { t: '!"', c: DK.string },
+  ],
+  [],
+  [
+    { t: "def ", c: DK.keyword },
+    { t: "check", c: DK.fn },
+    { t: "(", c: DK.punct },
+    { t: "result", c: DK.ink },
+    { t: "):", c: DK.punct },
+  ],
+  [
+    { t: "    return ", c: DK.ink },
+    { t: '"✓ pass"', c: DK.string },
+    { t: " if ", c: DK.keyword },
+    { t: "result", c: DK.ink },
+    { t: ".ok ", c: DK.ink },
+    { t: "else ", c: DK.keyword },
+    { t: '"✗ fail"', c: DK.err },
+  ],
+];
+
+const BentoEditorMini: React.FC = () => (
+  <div className="rounded-[18px] bg-[#0d1117] border border-slate-800 overflow-hidden">
+    <div className="flex items-center gap-2 px-3 h-8 border-b border-slate-800">
+      <div className="flex gap-1">
+        <span className="w-2 h-2 rounded-full bg-[#FF6058]" />
+        <span className="w-2 h-2 rounded-full bg-[#FFBD2E]" />
+        <span className="w-2 h-2 rounded-full bg-[#28C840]" />
+      </div>
+      <div className="flex-1 text-center text-[10px] text-slate-500 font-mono">
+        lesson_2_functions.py
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-[9px] text-slate-500">2 live</span>
+      </div>
+    </div>
+    <div className="flex font-mono text-[11px] leading-[20px]">
+      <div className="py-3 px-2 text-right text-slate-700 select-none border-r border-slate-800 min-w-[28px]">
+        {L2_DARK.map((_, i) => <div key={i}>{i + 1}</div>)}
+      </div>
+      <div className="flex-1 py-3 px-3">
+        {L2_DARK.map((line, li) => (
+          <div key={li} className="min-h-[20px]">
+            {line.length === 0 ? (
+              <span>&nbsp;</span>
+            ) : (
+              line.map((tok, ti) => (
+                <span key={ti} style={{ color: tok.c }}>{tok.t}</span>
+              ))
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
 );
 
 // ── Hero ────────────────────────────────────────────────────────────────
@@ -361,7 +539,7 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
           transition={{ ...SPRING, delay: 0.45 }}
           className="mt-20 max-w-[960px] mx-auto"
         >
-          <EditorCard showStrawie />
+          <EditorCard />
         </motion.div>
       </div>
     </section>
@@ -396,9 +574,9 @@ const EditorShowcase: React.FC = () => (
   <section id="editor" className="px-6 py-28 bg-gradient-to-b from-apple-bg to-white">
     <div className="max-w-[1180px] mx-auto">
       <SectionHeader
-        eyebrow="Live editor"
-        title={<>Two cursors. One file.<br /> Zero conflicts.</>}
-        sub="Edits are merged with a CRDT — a sync algorithm that lets multiple people change the same code without overwriting each other. Your students see your cursor; you see theirs."
+        eyebrow="Live collaboration"
+        title={<>Three cursors. One file.<br />Zero conflicts.</>}
+        sub="Edits sync via Yjs CRDT — the algorithm that lets ten students type in the same file simultaneously without overwriting each other. Cursors carry names. Selections stay visible."
       />
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -407,7 +585,7 @@ const EditorShowcase: React.FC = () => (
         transition={{ ...SPRING, delay: 0.1 }}
         className="max-w-[940px] mx-auto"
       >
-        <EditorCard />
+        <CollabEditorView />
       </motion.div>
     </div>
   </section>
@@ -456,8 +634,8 @@ const Bento: React.FC = () => (
             edit at once.
           </p>
           <div className="absolute bottom-0 right-0 w-[78%] translate-y-[18%] translate-x-[10%]">
-            <div className="rounded-tl-[18px] overflow-hidden border border-apple-line shadow-lift-md">
-              <EditorCard />
+            <div className="rounded-tl-[18px] overflow-hidden shadow-lift-md">
+              <BentoEditorMini />
             </div>
           </div>
         </BentoTile>
