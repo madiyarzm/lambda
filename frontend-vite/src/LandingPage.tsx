@@ -15,9 +15,11 @@ import {
 import { googleLogin, isLoggedIn } from "./lib/api";
 import { StrawieLogoSvg } from "./components/Logo";
 
-import strawieTeaching from "./assets/mascots/strawie-teaching.png";
-import berryFocused from "./assets/mascots/berry-focused.png";
-import berryAsking from "./assets/mascots/berry-asking.png";
+import strawieTeaching from "./assets/mascots/transparent/strawie-teaching.png";
+import berryFocused from "./assets/mascots/transparent/berry-focused.png";
+import berryAsking from "./assets/mascots/transparent/berry-asking.png";
+import berryExcited from "./assets/mascots/transparent/berry-excited.png";
+import berryBuildSuccess from "./assets/mascots/transparent/berry-build-success.png";
 
 // ── Motion variants ─────────────────────────────────────────────────────
 const SPRING = { type: "spring" as const, stiffness: 220, damping: 24, mass: 0.9 };
@@ -252,122 +254,184 @@ const CollabCursor: React.FC<{ color: string; label: string; offsetCh: number }>
   </>
 );
 
-// ── Lesson 3: Loops — multi-user collab showcase ─────────────────────────
-const L3: Line[] = [
-  [{ t: "# lesson 3 — loops", c: PY.comment }],
+// ── Lesson 5: Recursion — multi-user collab showcase ─────────────────────
+const L5: Line[] = [
+  [{ t: "# lesson 5 — recursion", c: PY.comment }],
   [
-    { t: "fruits", c: PY.ink },
-    { t: " = ", c: PY.punct },
-    { t: '["apple"', c: PY.string },
-    { t: ", ", c: PY.punct },
-    { t: '"berry"', c: PY.string },
-    { t: ", ", c: PY.punct },
-    { t: '"cherry"', c: PY.string },
-    { t: "]", c: PY.punct },
-  ],
-  [],
-  [
-    { t: "for", c: PY.keyword },
-    { t: " fruit ", c: PY.ink },
-    { t: "in", c: PY.keyword },
-    { t: " fruits:", c: PY.ink },
+    { t: "def ", c: PY.keyword },
+    { t: "factorial", c: PY.fn },
+    { t: "(", c: PY.punct },
+    { t: "n", c: PY.ink },
+    { t: "):", c: PY.punct },
   ],
   [
     { t: "    ", c: PY.ink },
-    { t: "print", c: PY.fn },
+    { t: "if", c: PY.keyword },
+    { t: " n == ", c: PY.ink },
+    { t: "0", c: PY.number },
+    { t: ":", c: PY.punct },
+  ],
+  [
+    { t: "        ", c: PY.ink },
+    { t: "return ", c: PY.keyword },
+    { t: "1", c: PY.number },
+  ],
+  [
+    { t: "    ", c: PY.ink },
+    { t: "return ", c: PY.keyword },
+    { t: "n", c: PY.ink },
+    { t: " * ", c: PY.punct },
+    { t: "factorial", c: PY.fn },
     { t: "(", c: PY.punct },
-    { t: "fruit", c: PY.ink },
+    { t: "n", c: PY.ink },
+    { t: " - ", c: PY.punct },
+    { t: "1", c: PY.number },
     { t: ")", c: PY.punct },
   ],
   [],
-  [{ t: "# what will this print?", c: PY.comment }],
+  [
+    { t: "print", c: PY.fn },
+    { t: "(", c: PY.punct },
+    { t: "factorial", c: PY.fn },
+    { t: "(", c: PY.punct },
+    { t: "5", c: PY.number },
+    { t: "))", c: PY.punct },
+  ],
+];
+
+// Lesson 6: Sorting — second tab content
+const L6: Line[] = [
+  [{ t: "# lesson 6 — sorting", c: PY.comment }],
+  [
+    { t: "nums", c: PY.ink },
+    { t: " = [", c: PY.punct },
+    { t: "3", c: PY.number },
+    { t: ", ", c: PY.punct },
+    { t: "1", c: PY.number },
+    { t: ", ", c: PY.punct },
+    { t: "4", c: PY.number },
+    { t: ", ", c: PY.punct },
+    { t: "1", c: PY.number },
+    { t: ", ", c: PY.punct },
+    { t: "5", c: PY.number },
+    { t: ", ", c: PY.punct },
+    { t: "9", c: PY.number },
+    { t: "]", c: PY.punct },
+  ],
+  [
+    { t: "nums", c: PY.ink },
+    { t: ".", c: PY.punct },
+    { t: "sort", c: PY.fn },
+    { t: "()", c: PY.punct },
+  ],
+  [],
+  [
+    { t: "print", c: PY.fn },
+    { t: "(", c: PY.punct },
+    { t: "nums", c: PY.ink },
+    { t: ")", c: PY.punct },
+  ],
 ];
 
 const COLLAB_USERS = [
   { color: "#5B7FFF", initial: "S", name: "Strawie" },
-  { color: "#9B7BFF", initial: "A", name: "Aigerim" },
-  { color: "#F97316", initial: "K", name: "Kira" },
+  { color: "#9B7BFF", initial: "B", name: "Berry" },
+  { color: "#F97316", initial: "R", name: "Raspie" },
 ];
 
-const CollabEditorView: React.FC = () => (
-  <div className="rounded-[22px] bg-white border border-apple-line shadow-lift-xl overflow-hidden">
-    {/* titlebar */}
-    <div className="flex items-center gap-3 px-4 h-10 border-b border-apple-line bg-apple-mist/50">
-      <div className="flex gap-1.5">
-        <span className="w-2.5 h-2.5 rounded-full bg-[#FF6058]" />
-        <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
-        <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
-      </div>
-      <div className="flex-1 flex justify-center">
-        <div className="flex items-center gap-2 text-[11px] font-medium text-apple-ink-3 font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          lesson_3_loops.py
+const CollabEditorView: React.FC = () => {
+  const [tab, setTab] = useState<"l5" | "l6">("l5");
+  const lines = tab === "l5" ? L5 : L6;
+  const fileName = tab === "l5" ? "lesson_5_recursion.py" : "lesson_6_sorting.py";
+  const output = tab === "l5" ? ["120"] : ["[1, 1, 3, 4, 5, 9]"];
+
+  return (
+    <div className="rounded-[22px] bg-white border border-apple-line shadow-lift-xl overflow-hidden">
+      {/* titlebar */}
+      <div className="flex items-center gap-3 px-4 h-10 border-b border-apple-line bg-apple-mist/50">
+        <div className="flex gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF6058]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+        </div>
+        <div className="flex-1 flex justify-center">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-apple-ink-3 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {fileName}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {COLLAB_USERS.map((u) => (
+            <div
+              key={u.name}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+              style={{ background: u.color }}
+              title={u.name}
+            >
+              {u.initial}
+            </div>
+          ))}
+          <span className="text-[11px] text-apple-ink-4 ml-0.5">3 live</span>
         </div>
       </div>
-      <div className="flex items-center gap-1.5">
-        {COLLAB_USERS.map((u) => (
-          <div
-            key={u.name}
-            className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-            style={{ background: u.color }}
-            title={u.name}
-          >
-            {u.initial}
-          </div>
-        ))}
-        <span className="text-[11px] text-apple-ink-4 ml-0.5">3 live</span>
+      {/* tabs */}
+      <div className="flex items-center px-4 h-9 border-b border-apple-line bg-white/60 gap-1">
+        <button
+          onClick={() => setTab("l5")}
+          className={`flex items-center gap-2 px-3 py-1 rounded-md text-[12px] font-medium font-mono transition
+            ${tab === "l5" ? "bg-apple-mist text-apple-ink-2" : "text-apple-ink-4 hover:bg-apple-mist/50"}`}
+        >
+          {tab === "l5" && <span className="w-1.5 h-1.5 rounded-full bg-berry-blue" />}
+          lesson_5_recursion.py
+        </button>
+        <button
+          onClick={() => setTab("l6")}
+          className={`flex items-center gap-2 px-3 py-1 rounded-md text-[12px] font-medium font-mono transition
+            ${tab === "l6" ? "bg-apple-mist text-apple-ink-2" : "text-apple-ink-4 hover:bg-apple-mist/50"}`}
+        >
+          {tab === "l6" && <span className="w-1.5 h-1.5 rounded-full bg-berry-blue" />}
+          lesson_6_sorting.py
+        </button>
+      </div>
+      {/* editor body */}
+      <div className="flex font-mono text-[13px] leading-[22px]">
+        <div className="py-4 px-3 text-right text-apple-ink-4/70 select-none border-r border-apple-line bg-apple-mist/30">
+          {lines.map((_, i) => <div key={i}>{i + 1}</div>)}
+        </div>
+        <div className="flex-1 py-4 px-5 relative">
+          {lines.map((line, li) => (
+            <div
+              key={`${tab}-${li}`}
+              className="relative min-h-[22px] rounded"
+              style={tab === "l5" && li === 4 ? { background: "rgba(155,123,255,0.08)" } : undefined}
+            >
+              {line.length === 0 ? (
+                <span>&nbsp;</span>
+              ) : (
+                line.map((tok, ti) => (
+                  <span key={ti} style={{ color: tok.c }}>{tok.t}</span>
+                ))
+              )}
+              {tab === "l5" && li === 1 && <CollabCursor color="#5B7FFF" label="Strawie" offsetCh={4} />}
+              {tab === "l5" && li === 4 && <CollabCursor color="#9B7BFF" label="Berry" offsetCh={11} />}
+              {tab === "l5" && li === 6 && <CollabCursor color="#F97316" label="Raspie" offsetCh={5} />}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* output */}
+      <div className="border-t border-apple-line bg-apple-mist/40 px-5 py-3">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Terminal size={11} className="text-apple-ink-4" />
+          <span className="text-[11px] font-medium text-apple-ink-4 font-mono">Output</span>
+        </div>
+        <div className="font-mono text-[12px] text-apple-ink-2 leading-[20px]">
+          {output.map((o, i) => <div key={i}>{o}</div>)}
+        </div>
       </div>
     </div>
-    {/* tabs */}
-    <div className="flex items-center px-4 h-9 border-b border-apple-line bg-white/60 gap-1">
-      <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-apple-mist text-[12px] font-medium text-apple-ink-2 font-mono">
-        <span className="w-1.5 h-1.5 rounded-full bg-berry-blue" />
-        lesson_3_loops.py
-      </div>
-      <div className="px-3 py-1 text-[12px] text-apple-ink-4 font-mono cursor-pointer hover:bg-apple-mist/50 rounded-md transition">
-        lesson_4_functions.py
-      </div>
-    </div>
-    {/* editor body */}
-    <div className="flex font-mono text-[13px] leading-[22px]">
-      <div className="py-4 px-3 text-right text-apple-ink-4/70 select-none border-r border-apple-line bg-apple-mist/30">
-        {L3.map((_, i) => <div key={i}>{i + 1}</div>)}
-      </div>
-      <div className="flex-1 py-4 px-5 relative">
-        {L3.map((line, li) => (
-          <div
-            key={li}
-            className={`relative min-h-[22px] ${li === 4 ? "rounded" : ""}`}
-            style={li === 4 ? { background: "rgba(155,123,255,0.08)" } : undefined}
-          >
-            {line.length === 0 ? (
-              <span>&nbsp;</span>
-            ) : (
-              line.map((tok, ti) => (
-                <span key={ti} style={{ color: tok.c }}>{tok.t}</span>
-              ))
-            )}
-            {li === 3 && <CollabCursor color="#5B7FFF" label="Strawie" offsetCh={0} />}
-            {li === 4 && <CollabCursor color="#9B7BFF" label="Aigerim" offsetCh={16} />}
-            {li === 1 && <CollabCursor color="#F97316" label="Kira" offsetCh={37} />}
-          </div>
-        ))}
-      </div>
-    </div>
-    {/* output */}
-    <div className="border-t border-apple-line bg-apple-mist/40 px-5 py-3">
-      <div className="flex items-center gap-2 mb-1.5">
-        <Terminal size={11} className="text-apple-ink-4" />
-        <span className="text-[11px] font-medium text-apple-ink-4 font-mono">Output</span>
-      </div>
-      <div className="font-mono text-[12px] text-apple-ink-2 leading-[20px]">
-        <div>apple</div>
-        <div>berry</div>
-        <div>cherry</div>
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 // ── Dark mini editor (Bento tile) ─────────────────────────────────────────
 const DK = {
@@ -500,7 +564,7 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
             className="mt-7 text-[18px] leading-[1.55] text-apple-ink-3 max-w-[620px] mx-auto"
           >
             Strawie is a browser-based Python editor where teachers and students
-            work in the same file, live. No installs, no Docker, no setup.
+            work in the same file, live. No installs, no setup.
           </motion.p>
 
           <motion.div
@@ -649,7 +713,7 @@ const Bento: React.FC = () => (
             Stuck? Spend a few XP.
           </h3>
           <div className="flex items-end gap-3">
-            <img src={berryAsking} alt="" className="w-20 h-20 object-cover object-[50%_60%] rounded-2xl" />
+            <img src={berryAsking} alt="" className="w-20 h-24 object-contain drop-shadow-sm" />
             <div className="flex-1 mb-2 px-3 py-2 rounded-2xl rounded-bl-sm bg-berry-purple-soft text-[12px] text-apple-ink-2 leading-snug border border-berry-purple/15">
               Try printing <code className="px-1 rounded bg-white text-berry-purple font-mono">name</code> first to see what's inside.
             </div>
@@ -725,14 +789,34 @@ const Bento: React.FC = () => (
           </h3>
           <div className="relative rounded-xl border border-apple-line bg-apple-mist/30 h-[90px] overflow-hidden">
             <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 90" preserveAspectRatio="none">
-              <path d="M 15 68 Q 50 18 90 45 T 155 35" stroke="#5B7FFF" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.85"/>
-              <path d="M 40 75 Q 75 35 115 55 T 185 42" stroke="#9B7BFF" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.85"/>
-              <circle cx="155" cy="35" r="4.5" fill="#5B7FFF" opacity="0.9"/>
-              <circle cx="185" cy="42" r="4.5" fill="#9B7BFF" opacity="0.9"/>
+              <motion.path
+                d="M 15 68 Q 50 18 90 45 T 155 35"
+                stroke="#5B7FFF" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.85"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 1.4, ease: "easeInOut", repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
+              />
+              <motion.path
+                d="M 40 75 Q 75 35 115 55 T 185 42"
+                stroke="#9B7BFF" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.85"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 1.4, ease: "easeInOut", delay: 0.35, repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
+              />
+              <motion.circle
+                r="4.5" fill="#5B7FFF" opacity="0.9"
+                animate={{ cx: [15, 90, 155], cy: [68, 45, 35] }}
+                transition={{ duration: 1.4, ease: "easeInOut", times: [0, 0.55, 1], repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
+              />
+              <motion.circle
+                r="4.5" fill="#9B7BFF" opacity="0.9"
+                animate={{ cx: [40, 115, 185], cy: [75, 55, 42] }}
+                transition={{ duration: 1.4, ease: "easeInOut", delay: 0.35, times: [0, 0.55, 1], repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
+              />
             </svg>
             <div className="absolute top-1.5 right-2 flex gap-1">
               <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#5B7FFF" }}>Strawie</span>
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#9B7BFF" }}>Aigerim</span>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#9B7BFF" }}>Berry</span>
             </div>
           </div>
           <p className="text-[11px] text-apple-ink-3 mt-2 leading-snug">
@@ -758,7 +842,13 @@ const Bento: React.FC = () => (
           </div>
           {/* XP progress bar */}
           <div className="h-1.5 rounded-full bg-apple-mist overflow-hidden mb-4">
-            <div className="h-full rounded-full bg-gradient-to-r from-berry-blue to-berry-purple" style={{ width: "48%" }} />
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-berry-blue to-berry-purple"
+              initial={{ width: "0%" }}
+              whileInView={{ width: "48%" }}
+              viewport={{ once: true }}
+              transition={{ duration: 1.1, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.2 }}
+            />
           </div>
           <div className="flex gap-[3px]">
             {Array.from({ length: 12 }).map((_, w) => (
@@ -773,7 +863,14 @@ const Bento: React.FC = () => (
                     "bg-berry-blue",
                   ];
                   return (
-                    <div key={d} className={`w-3 h-3 rounded-[3px] ${palette[lvl]}`} />
+                    <motion.div
+                      key={d}
+                      className={`w-3 h-3 rounded-[3px] ${palette[lvl]}`}
+                      initial={{ opacity: 0, scale: 0.4 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.25, delay: (w * 7 + d) * 0.012 }}
+                    />
                   );
                 })}
               </div>
@@ -827,11 +924,11 @@ const Bento: React.FC = () => (
 
 // ── How it works ───────────────────────────────────────────────────────
 const Steps: React.FC = () => {
-  const steps = [
-    { n: "01", title: "Create a classroom", desc: "Sign in with Google. Name your group. Done." },
+  const steps: { n: string; title: string; desc: string; mascot?: string }[] = [
+    { n: "01", title: "Create a classroom", desc: "Sign in with Google. Name your group. Done.", mascot: strawieTeaching },
     { n: "02", title: "Share the code", desc: "Send a 6-character invite to your students." },
-    { n: "03", title: "Code together", desc: "Open the same file. Cursors and edits sync live." },
-    { n: "04", title: "Submit & review", desc: "Tests run automatically. Leave feedback inline." },
+    { n: "03", title: "Code together", desc: "Open the same file. Cursors and edits sync live.", mascot: berryAsking },
+    { n: "04", title: "Submit & review", desc: "Tests run automatically. Leave feedback inline.", mascot: berryBuildSuccess },
   ];
 
   return (
@@ -851,6 +948,13 @@ const Steps: React.FC = () => {
               transition={{ ...SPRING, delay: i * 0.06 }}
               className="rounded-[20px] bg-white border border-apple-line shadow-lift-sm p-6"
             >
+              {s.mascot && (
+                <img
+                  src={s.mascot}
+                  alt=""
+                  className="w-16 h-16 object-contain drop-shadow-sm mb-3"
+                />
+              )}
               <div className="font-mono text-[12px] font-semibold text-apple-ink-4 mb-3">
                 {s.n}
               </div>
@@ -915,11 +1019,11 @@ const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
                          shadow-lift-md p-8 overflow-hidden"
             >
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-apple-mist">
+                <div className="w-20 h-20 flex items-end justify-center shrink-0">
                   <img
                     src={r.img}
                     alt=""
-                    className="w-full h-full object-cover object-[50%_55%]"
+                    className="w-full h-full object-contain drop-shadow-md"
                   />
                 </div>
                 <div>
@@ -972,6 +1076,15 @@ const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
         <div className="absolute -bottom-32 right-1/3 w-96 h-96 bg-berry-purple-soft rounded-full blur-3xl" />
 
         <div className="relative">
+          <motion.img
+            src={berryExcited}
+            alt=""
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ ...SPRING, delay: 0.05 }}
+            className="w-24 h-24 object-contain drop-shadow-lg mx-auto mb-4"
+          />
           <motion.h2
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
