@@ -11,6 +11,11 @@ import {
   Terminal,
   PenLine,
   Trophy,
+  Flame,
+  Zap,
+  Star,
+  Lightbulb,
+  Target,
 } from "lucide-react";
 import { googleLogin, isLoggedIn } from "./lib/api";
 import { StrawieLogoSvg } from "./components/Logo";
@@ -803,16 +808,6 @@ const Bento: React.FC = () => (
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 1.4, ease: "easeInOut", delay: 0.35, repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
               />
-              <motion.circle
-                r="4.5" fill="#5B7FFF" opacity="0.9"
-                animate={{ cx: [15, 90, 155], cy: [68, 45, 35] }}
-                transition={{ duration: 1.4, ease: "easeInOut", times: [0, 0.55, 1], repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
-              />
-              <motion.circle
-                r="4.5" fill="#9B7BFF" opacity="0.9"
-                animate={{ cx: [40, 115, 185], cy: [75, 55, 42] }}
-                transition={{ duration: 1.4, ease: "easeInOut", delay: 0.35, times: [0, 0.55, 1], repeat: Infinity, repeatDelay: 1.2, repeatType: "loop" }}
-              />
             </svg>
             <div className="absolute top-1.5 right-2 flex gap-1">
               <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#5B7FFF" }}>Strawie</span>
@@ -888,30 +883,30 @@ const Bento: React.FC = () => (
           </h3>
           <div className="flex gap-2">
             {[
-              { emoji: "🔥", label: "7-day streak", bg: "bg-orange-50", border: "border-orange-100", text: "text-orange-600" },
-              { emoji: "⚡", label: "First solve", bg: "bg-blue-50", border: "border-blue-100", text: "text-berry-blue" },
-              { emoji: "🏆", label: "Top scorer", bg: "bg-yellow-50", border: "border-yellow-100", text: "text-yellow-600" },
+              { icon: <Flame size={16} />, label: "7-day streak", bg: "bg-orange-50", border: "border-orange-100", text: "text-orange-500" },
+              { icon: <Zap size={16} />, label: "First solve", bg: "bg-blue-50", border: "border-blue-100", text: "text-berry-blue" },
+              { icon: <Trophy size={16} />, label: "Top scorer", bg: "bg-yellow-50", border: "border-yellow-100", text: "text-yellow-500" },
             ].map((b) => (
               <div
                 key={b.label}
                 className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border flex-1 ${b.bg} ${b.border}`}
               >
-                <span className="text-xl leading-none">{b.emoji}</span>
+                <span className={b.text}>{b.icon}</span>
                 <span className={`text-[9px] font-semibold leading-tight text-center ${b.text}`}>{b.label}</span>
               </div>
             ))}
           </div>
           <div className="mt-3 flex gap-2">
             {[
-              { emoji: "🌟", label: "100 XP", locked: false },
-              { emoji: "🧠", label: "Hint master", locked: false },
-              { emoji: "🎯", label: "Perfect run", locked: true },
+              { icon: <Star size={14} />, label: "100 XP", locked: false },
+              { icon: <Lightbulb size={14} />, label: "Hint master", locked: false },
+              { icon: <Target size={14} />, label: "Perfect run", locked: true },
             ].map((b) => (
               <div
                 key={b.label}
                 className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl border flex-1 ${b.locked ? "bg-apple-mist border-apple-line opacity-40" : "bg-white border-apple-line"}`}
               >
-                <span className="text-base leading-none">{b.emoji}</span>
+                <span className="text-apple-ink-3">{b.icon}</span>
                 <span className="text-[9px] font-medium text-apple-ink-3 text-center leading-tight">{b.label}</span>
               </div>
             ))}
