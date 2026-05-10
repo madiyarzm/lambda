@@ -12,6 +12,8 @@ from app.dependencies import CurrentUser, DBSession
 from app.schemas.classroom import ClassroomCreate, ClassroomRead
 from app.services.classroom_service import (
     create_classroom,
+    delete_classroom,
+    get_classroom_or_404,
     list_classrooms_for_group,
     list_classrooms_for_user,
 )
@@ -70,3 +72,17 @@ def create_classroom_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
     return ClassroomRead.model_validate(classroom)
+
+
+@router.delete("/{classroom_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_classroom_endpoint(classroom_id: UUID, current_user: CurrentUser, db: DBSession) -> None:
+    """Delete a classroom. Only the classroom owner (teacher) can do this."""
+    try:
+        classroom = get_classroom_or_404(db, classroom_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    if classroom.teacher_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the classroom owner can delete it")
+
+    delete_classroom(db, classroom)

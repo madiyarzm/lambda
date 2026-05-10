@@ -13,6 +13,7 @@ from app.dependencies import CurrentUser, DBSession
 from app.schemas.group import GroupCreate, GroupMemberRead, GroupRead, JoinGroupRequest
 from app.services.group_service import (
     create_group,
+    delete_group,
     get_group_or_404,
     get_member_count,
     join_group_by_invite_code,
@@ -75,6 +76,20 @@ def join_group(
 
     group = get_group_or_404(db, membership.group_id)
     return _group_to_read(group, get_member_count(db, group.id))
+
+
+@router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_group_endpoint(group_id: UUID, current_user: CurrentUser, db: DBSession) -> None:
+    """Delete a group. Only the group owner can do this."""
+    try:
+        group = get_group_or_404(db, group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    if group.teacher_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the group owner can delete this group")
+
+    delete_group(db, group)
 
 
 @router.get("/{group_id}/members", response_model=list[GroupMemberRead])

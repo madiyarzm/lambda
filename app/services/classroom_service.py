@@ -87,6 +87,12 @@ def list_classrooms_for_user(db: Session, user: User) -> List[Classroom]:
     )
 
 
+def delete_classroom(db: Session, classroom: Classroom) -> None:
+    """Delete a classroom. Only call after verifying ownership."""
+    db.delete(classroom)
+    db.commit()
+
+
 def get_classroom_or_404(db: Session, classroom_id: UUID) -> Classroom:
     """Retrieve a classroom or raise ValueError if not found."""
     classroom = db.get(Classroom, classroom_id)

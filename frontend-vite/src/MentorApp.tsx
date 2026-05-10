@@ -9,6 +9,8 @@ import {
   createClassroom,
   createGroup,
   createSubmission,
+  deleteClassroom,
+  deleteGroup,
   getHint,
   getMe,
   getMyActivity,
@@ -25,7 +27,7 @@ import {
   runSandbox,
   updateUserRole,
 } from "./lib/api";
-import { Play, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star } from "lucide-react";
+import { Play, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2 } from "lucide-react";
 import { Confetti } from "./components/Confetti";
 import { ChalkLogo } from "./components/Logo";
 import { Avatar } from "./components/Avatar";
@@ -492,6 +494,27 @@ export const MentorApp: React.FC = () => {
     } catch (e: any) { setError(e.message || "Failed to create classroom."); }
   };
 
+  const handleDeleteGroup = async (groupId: string, groupName: string) => {
+    if (!window.confirm(`Delete group "${groupName}"? This will remove all classrooms and data inside it.`)) return;
+    setError(null);
+    try {
+      await deleteGroup(groupId);
+      setGroups(prev => prev.filter(g => g.id !== groupId));
+      setGroupClassrooms(prev => { const next = { ...prev }; delete next[groupId]; return next; });
+      if (currentClassroom?.group_id === groupId) { setCurrentClassroom(null); setView("dashboard"); }
+    } catch (e: any) { setError(e.message || "Failed to delete group."); }
+  };
+
+  const handleDeleteClassroom = async (classroomId: string, classroomName: string, groupId: string) => {
+    if (!window.confirm(`Delete classroom "${classroomName}"? All assignments and submissions inside will be removed.`)) return;
+    setError(null);
+    try {
+      await deleteClassroom(classroomId);
+      setGroupClassrooms(prev => ({ ...prev, [groupId]: (prev[groupId] || []).filter((c: any) => c.id !== classroomId) }));
+      if (currentClassroom?.id === classroomId) { setCurrentClassroom(null); setView("dashboard"); }
+    } catch (e: any) { setError(e.message || "Failed to delete classroom."); }
+  };
+
   const openClassroom = async (cls: any) => {
     setCurrentClassroom(cls);
     setError(null);
@@ -759,33 +782,58 @@ export const MentorApp: React.FC = () => {
                 const classrooms = groupClassrooms[g.id] || [];
                 return (
                   <div key={g.id}>
-                    <button
-                      onClick={() => toggleGroup(g.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "6px 12px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 12, fontWeight: 600 }}
-                    >
-                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d={isExpanded ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
-                      </svg>
-                      <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
-                    </button>
-                    {isExpanded && classrooms.map(c => (
+                    <div style={{ display: "flex", alignItems: "center" }}>
                       <button
-                        key={c.id}
-                        onClick={() => openClassroom({ ...c, invite_code: g.invite_code })}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, width: "100%",
-                          padding: "6px 12px 6px 28px", border: "none",
-                          cursor: "pointer", fontSize: 12,
-                          color: currentClassroom?.id === c.id ? "var(--indigo)" : "var(--text-3)",
-                          background: currentClassroom?.id === c.id ? "var(--indigo-10)" : "transparent",
-                          borderRadius: "var(--r)",
-                        }}
+                        onClick={() => toggleGroup(g.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, padding: "6px 4px 6px 12px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 12, fontWeight: 600 }}
                       >
-                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d={isExpanded ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
                         </svg>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
                       </button>
+                      {canCreate && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDeleteGroup(g.id, g.name); }}
+                          title="Delete group"
+                          style={{ flexShrink: 0, padding: "4px 8px 4px 4px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", opacity: 0.5, lineHeight: 1 }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
+                    {isExpanded && classrooms.map(c => (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center" }}>
+                        <button
+                          onClick={() => openClassroom({ ...c, invite_code: g.invite_code })}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0,
+                            padding: "6px 4px 6px 28px", border: "none",
+                            cursor: "pointer", fontSize: 12,
+                            color: currentClassroom?.id === c.id ? "var(--indigo)" : "var(--text-3)",
+                            background: currentClassroom?.id === c.id ? "var(--indigo-10)" : "transparent",
+                            borderRadius: "var(--r)",
+                          }}
+                        >
+                          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                        </button>
+                        {canCreate && (
+                          <button
+                            onClick={e => { e.stopPropagation(); handleDeleteClassroom(c.id, c.name, g.id); }}
+                            title="Delete classroom"
+                            style={{ flexShrink: 0, padding: "4px 8px 4px 4px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", opacity: 0.5, lineHeight: 1 }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
                     ))}
                     {isExpanded && classrooms.length === 0 && (
                       <div style={{ padding: "4px 12px 4px 28px", fontSize: 11, color: "var(--border-2)" }}>No classrooms</div>
@@ -895,6 +943,7 @@ export const MentorApp: React.FC = () => {
               onCreateAssignment={handleCreateAssignment}
               onOpenAssignment={openAssignment}
               onBack={() => setView("dashboard")}
+              onDelete={() => handleDeleteClassroom(currentClassroom.id, currentClassroom.name, currentClassroom.group_id)}
             />
           )}
           {view === "submissions" && currentClassroom && (
@@ -1370,11 +1419,12 @@ interface ClassroomViewProps {
   onCreateAssignment: () => void;
   onOpenAssignment: (asg: any) => void;
   onBack: () => void;
+  onDelete?: () => void;
 }
 
 const ClassroomView: React.FC<ClassroomViewProps> = ({
   classroom, assignments, canCreate, userRole, userId,
-  submissionsByAssignment, groupMembers, onCreateAssignment, onOpenAssignment, onBack,
+  submissionsByAssignment, groupMembers, onCreateAssignment, onOpenAssignment, onBack, onDelete,
 }) => {
   const [activeTab, setActiveTab] = useState<"assignments" | "students">("assignments");
 
@@ -1405,11 +1455,24 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
               )}
             </div>
           </div>
-          {canCreate && (
-            <button onClick={onCreateAssignment} style={{ padding: "9px 18px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
-              + New Assignment
-            </button>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {canCreate && onDelete && (
+              <button
+                onClick={onDelete}
+                title="Delete classroom"
+                style={{ padding: "9px 12px", background: "transparent", color: "var(--text-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.borderColor = "#ef4444"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+            {canCreate && (
+              <button onClick={onCreateAssignment} style={{ padding: "9px 18px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
+                + New Assignment
+              </button>
+            )}
+          </div>
         </div>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginTop: 20, borderBottom: "1px solid var(--border)", marginBottom: -1 }}>

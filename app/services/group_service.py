@@ -131,6 +131,12 @@ def list_group_members(db: Session, group: Group) -> List[dict]:
     ]
 
 
+def delete_group(db: Session, group: Group) -> None:
+    """Delete a group and all its memberships. Only call after verifying ownership."""
+    db.delete(group)
+    db.commit()
+
+
 def remove_member(db: Session, group: Group, user_id: UUID) -> None:
     """
     Remove a member from a group.

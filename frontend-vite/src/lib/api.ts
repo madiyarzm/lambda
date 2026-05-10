@@ -139,6 +139,10 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   await apiClient.delete(`/api/v1/groups/${groupId}/members/${userId}`);
 }
 
+export async function deleteGroup(groupId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/groups/${groupId}`);
+}
+
 // --- Classrooms ---
 
 export async function listClassrooms(groupId?: string): Promise<any[]> {
@@ -156,6 +160,10 @@ export async function createClassroom(
     name,
     description,
   });
+}
+
+export async function deleteClassroom(classroomId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/classrooms/${classroomId}`);
 }
 
 // --- Assignments ---
