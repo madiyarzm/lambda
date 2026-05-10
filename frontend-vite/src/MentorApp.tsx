@@ -1072,7 +1072,7 @@ interface DashboardViewProps {
 
 const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom }) => {
   // derive flat classroom list for teacher
-  const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name })));
+  const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code })));
   // student: assignments across all classrooms
   const totalStudents = groups.reduce((sum, g) => sum + Math.max(0, (g.member_count || 1) - 1), 0);
 
