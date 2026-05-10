@@ -771,7 +771,7 @@ export const MentorApp: React.FC = () => {
                     {isExpanded && classrooms.map(c => (
                       <button
                         key={c.id}
-                        onClick={() => openClassroom(c)}
+                        onClick={() => openClassroom({ ...c, invite_code: g.invite_code })}
                         style={{
                           display: "flex", alignItems: "center", gap: 8, width: "100%",
                           padding: "6px 12px 6px 28px", border: "none",
