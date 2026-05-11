@@ -15,6 +15,7 @@ import {
   getMe,
   getMyActivity,
   getMyStats,
+  getSandboxWsUrl,
   isLoggedIn,
   joinGroup,
   listAllUsers,
@@ -24,7 +25,6 @@ import {
   listGroups,
   listSubmissions,
   logout,
-  runSandbox,
   updateUserRole,
 } from "./lib/api";
 import { Play, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2 } from "lucide-react";
@@ -338,14 +338,6 @@ type EditorFile = {
   content: string;
 };
 
-type TerminalEntry = {
-  id: string;
-  type: "run" | "submit";
-  fileName: string;
-  timestamp: string;
-  status: "success" | "error";
-  output: string;
-};
 
 export const MentorApp: React.FC = () => {
   const navigate = useNavigate();
@@ -367,9 +359,6 @@ export const MentorApp: React.FC = () => {
   const [files, setFiles] = useState<EditorFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [code, setCode] = useState<string>("");
-  const [output, setOutput] = useState<string>("(Run or submit to see output)");
-  const [stdinInput, setStdinInput] = useState<string>("");
-  const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -555,8 +544,6 @@ export const MentorApp: React.FC = () => {
     setFiles([initialFile]);
     setActiveFileId(initialFile.id);
     setCode(initialCode);
-    setOutput("(Run or submit to see output)");
-    setTerminalEntries([]);
     setError(null);
     setFailedAttempts(0);
     setHint(null);
@@ -597,31 +584,10 @@ export const MentorApp: React.FC = () => {
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
   };
 
-  const handleRun = async () => {
-    if (!currentAssignment) return;
-    setLoading(true);
-    setOutput("Running…");
-    const activeFile = files.find(f => f.id === activeFileId) || files[0] || null;
-    const fileName = activeFile?.name || "main.py";
-    try {
-      const res = await runSandbox(code, stdinInput);
-      const text = res?.stdout || res?.stderr || JSON.stringify(res?.result_json || {});
-      setOutput(text);
-      const status: "success" | "error" = res?.status === "success" ? "success" : "error";
-      setTerminalEntries(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, type: "run", fileName, timestamp: new Date().toLocaleTimeString(), status, output: text }]);
-    } catch (e: any) {
-      const text = `Error: ${e.message}`;
-      setOutput(text);
-      setTerminalEntries(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, type: "run", fileName, timestamp: new Date().toLocaleTimeString(), status: "error", output: text }]);
-    } finally { setLoading(false); }
-  };
-
   const handleSubmit = async () => {
     if (!currentAssignment) return;
     setLoading(true);
     setError(null);
-    const activeFile = files.find(f => f.id === activeFileId) || files[0] || null;
-    const fileName = activeFile?.name || "main.py";
     try {
       const sub = await createSubmission(currentAssignment.id, code);
       setSubmissions(prev => [sub, ...prev]);
@@ -634,10 +600,6 @@ export const MentorApp: React.FC = () => {
         setXp(prev => (prev ?? 0) + 2);
         setFailedAttempts(prev => prev + 1);
       }
-      const text = `Submitted! Status: ${sub.status}`;
-      setOutput(text);
-      const status: "success" | "error" = sub.status === "success" ? "success" : "error";
-      setTerminalEntries(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, type: "submit", fileName, timestamp: new Date().toLocaleTimeString(), status, output: text }]);
     } catch (e: any) { setError(e.message || "Failed to submit."); } finally { setLoading(false); }
   };
 
@@ -677,8 +639,6 @@ export const MentorApp: React.FC = () => {
     setSelectedSubmission(updated);
     setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, feedback: updated.feedback } : s));
   };
-
-  const handleClearTerminal = () => setTerminalEntries([]);
 
   const roomIdForEditor = currentClassroom && currentAssignment && activeFileId
     ? `${currentClassroom.id}:${currentAssignment.id}:${activeFileId}` : undefined;
@@ -973,15 +933,10 @@ export const MentorApp: React.FC = () => {
               activeFileId={activeFileId}
               onSelectFile={handleSelectFile}
               onAddFile={handleAddFile}
-              terminalEntries={terminalEntries}
-              onClearTerminal={handleClearTerminal}
               submissions={submissions}
               selectedSubmission={selectedSubmission}
               onSelectSubmission={setSelectedSubmission}
               loading={loading}
-              stdinInput={stdinInput}
-              onStdinChange={setStdinInput}
-              onRun={handleRun}
               onSubmit={handleSubmit}
               onBack={() => setView("classroom")}
               onSaveFeedback={handleSaveFeedback}
@@ -1865,7 +1820,6 @@ interface AssignmentViewProps {
   assignment: any;
   code: string;
   setCode: (c: string) => void;
-  output: string;
   roomId?: string;
   drawingRoomId?: string;
   userName?: string;
@@ -1876,15 +1830,10 @@ interface AssignmentViewProps {
   activeFileId: string | null;
   onSelectFile: (id: string) => void;
   onAddFile: () => void;
-  terminalEntries: TerminalEntry[];
-  onClearTerminal: () => void;
   submissions: any[];
   selectedSubmission: any | null;
   onSelectSubmission: (s: any | null) => void;
   loading: boolean;
-  stdinInput: string;
-  onStdinChange: (v: string) => void;
-  onRun: () => void;
   onSubmit: () => void;
   onBack: () => void;
   onSaveFeedback: (submissionId: string, feedback: string) => Promise<void>;
@@ -1896,17 +1845,92 @@ interface AssignmentViewProps {
   xp?: number | null;
 }
 
+type StreamLine = { id: number; text: string; type: "stdout" | "stderr" | "info" };
+
 const AssignmentView: React.FC<AssignmentViewProps> = ({
   assignment, code, setCode, roomId, drawingRoomId,
   userName, userRole, userId, groupMembers, files, activeFileId,
-  onSelectFile, onAddFile, terminalEntries, onClearTerminal,
+  onSelectFile, onAddFile,
   submissions, selectedSubmission, onSelectSubmission, loading,
-  stdinInput, onStdinChange, onRun, onSubmit, onBack,
+  onSubmit, onBack,
   failedAttempts, hint, hintLoading, onGetHint, onDismissHint, xp,
 }) => {
   const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
   const [handRaised, setHandRaised] = useState(false);
   const isHomework = !!assignment.due_at;
+
+  // Streaming terminal state
+  const [streamLines, setStreamLines] = useState<StreamLine[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [inputPrompt, setInputPrompt] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const wsRef = useRef<WebSocket | null>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const lineId = useRef(0);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [streamLines]);
+
+  useEffect(() => {
+    if (inputPrompt !== null) inputRef.current?.focus();
+  }, [inputPrompt]);
+
+  useEffect(() => {
+    return () => { wsRef.current?.close(); };
+  }, []);
+
+  const handleRunLocal = () => {
+    if (isRunning) return;
+    wsRef.current?.close();
+    const token = window.localStorage.getItem("lambda_token");
+    if (!token) return;
+    const url = `${getSandboxWsUrl()}?token=${encodeURIComponent(token)}`;
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+    setStreamLines([]);
+    setIsRunning(true);
+    setInputPrompt(null);
+    setInputValue("");
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ code }));
+    };
+
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data as string);
+      if (msg.type === "stdout" || msg.type === "stderr") {
+        setStreamLines(prev => [...prev, { id: lineId.current++, text: msg.text, type: msg.type }]);
+      } else if (msg.type === "input_request") {
+        setInputPrompt(msg.prompt ?? "");
+      } else if (msg.type === "done") {
+        setIsRunning(false);
+        setInputPrompt(null);
+      }
+    };
+
+    ws.onerror = () => {
+      setStreamLines(prev => [...prev, { id: lineId.current++, text: "Connection error.\n", type: "stderr" }]);
+      setIsRunning(false);
+      setInputPrompt(null);
+    };
+
+    ws.onclose = () => {
+      setIsRunning(false);
+      setInputPrompt(null);
+    };
+  };
+
+  const handleSendInput = () => {
+    if (!wsRef.current || inputPrompt === null) return;
+    wsRef.current.send(JSON.stringify({ type: "input_response", value: inputValue }));
+    setStreamLines(prev => [...prev, { id: lineId.current++, text: inputValue + "\n", type: "stdout" }]);
+    setInputPrompt(null);
+    setInputValue("");
+  };
 
   const showRoster = userRole === "teacher" && isHomework && groupMembers.length > 0;
   const subByUserId = Object.fromEntries(submissions.map((s: any) => [s.user_id, s]));
@@ -2073,13 +2097,13 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             <div className="border-t" style={{ borderColor: "var(--border)", background: "var(--bg-2)" }}>
               <div className="flex items-center gap-2 px-3 py-2">
                 <button
-                  onClick={onRun}
-                  disabled={loading}
+                  onClick={handleRunLocal}
+                  disabled={isRunning}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[10px] font-semibold disabled:opacity-60 transition-all"
                   style={{ background: "var(--indigo)", color: "#fff", boxShadow: "0 0 12px oklch(55% 0.22 264 / 0.35)" }}
                 >
                   <Play className="h-3 w-3" />
-                  Run
+                  {isRunning ? "Running…" : "Run"}
                 </button>
                 <button
                   onClick={onSubmit}
@@ -2153,10 +2177,18 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               className="flex items-center justify-between px-3 py-2"
               style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--border)" }}
             >
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>Terminal</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>Terminal</span>
+                {isRunning && (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: "var(--mint)", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }}
+                  />
+                )}
+              </div>
               <button
                 type="button"
-                onClick={onClearTerminal}
+                onClick={() => { setStreamLines([]); }}
                 className="text-[10px] px-1.5 py-0.5 rounded-[6px] border transition-colors"
                 style={{ border: "1px solid var(--border)", color: "var(--subtle)" }}
               >
@@ -2164,46 +2196,57 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               </button>
             </div>
             <div
-              className="h-28 overflow-auto px-3 py-2 font-mono text-[11px]"
+              ref={terminalRef}
+              className="h-36 overflow-auto px-3 py-2 font-mono text-[11px]"
               style={{ background: "var(--bg)" }}
             >
-              {terminalEntries.length === 0 ? (
+              {streamLines.length === 0 && !isRunning ? (
                 <div style={{ color: "var(--subtle)" }}>
-                  No runs yet. Press <span style={{ color: "var(--indigo)" }}>Run</span> or <span style={{ color: "var(--indigo)" }}>Submit</span>.
+                  Press <span style={{ color: "var(--indigo)" }}>Run</span> to execute.
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {terminalEntries.map(entry => (
-                    <div key={entry.id}>
-                      <div style={{ color: "var(--subtle)" }}>
-                        strawie@runtime:~$ {entry.type === "run" ? `python ${entry.fileName}` : `submit ${entry.fileName}`}
-                        <span className="ml-2" style={{ color: "var(--border-2)" }}>{entry.timestamp}</span>
-                      </div>
-                      <pre
-                        className="whitespace-pre-wrap break-words"
-                        style={{ color: entry.status === "success" ? "var(--mint)" : "var(--rose)" }}
-                      >
-                        {entry.output || "(no output)"}
-                      </pre>
-                    </div>
+                <div>
+                  {streamLines.map(line => (
+                    <pre
+                      key={line.id}
+                      className="whitespace-pre-wrap break-words m-0"
+                      style={{ color: line.type === "stderr" ? "var(--rose)" : "var(--text)" }}
+                    >
+                      {line.text}
+                    </pre>
                   ))}
+                  {isRunning && inputPrompt === null && (
+                    <span className="inline-block w-2 h-3 align-middle" style={{ background: "var(--indigo)", animation: "pulseDot 1s step-end infinite" }} />
+                  )}
                 </div>
               )}
             </div>
-            {code.includes('input(') && (
+            {inputPrompt !== null && (
               <div
                 className="border-t flex items-center gap-2 px-3 py-1.5"
                 style={{ borderColor: "oklch(72% 0.18 168 / 0.3)", background: "var(--mint-10)" }}
               >
-                <span className="text-[10px] font-semibold shrink-0" style={{ color: "var(--mint)" }}>stdin ›</span>
+                <span className="text-[11px] font-mono shrink-0" style={{ color: "var(--mint)" }}>
+                  {inputPrompt || "›"}
+                </span>
                 <input
+                  ref={inputRef}
                   type="text"
-                  value={stdinInput}
-                  onChange={e => onStdinChange(e.target.value)}
-                  placeholder="Values for input() calls, one per line…"
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleSendInput(); }}
+                  placeholder="Type and press Enter…"
                   className="flex-1 text-[11px] px-2 py-0.5 rounded-[6px] focus:outline-none font-mono"
                   style={{ background: "var(--bg)", border: "1px solid oklch(72% 0.18 168 / 0.3)", color: "var(--text)" }}
                 />
+                <button
+                  type="button"
+                  onClick={handleSendInput}
+                  className="text-[11px] px-2 py-0.5 rounded-[6px]"
+                  style={{ background: "var(--mint-10)", color: "var(--mint)", border: "1px solid oklch(72% 0.18 168 / 0.3)" }}
+                >
+                  Enter
+                </button>
               </div>
             )}
           </div>

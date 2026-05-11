@@ -25,6 +25,9 @@ import berryFocused from "./assets/mascots/transparent/berry-focused.png";
 import berryAsking from "./assets/mascots/transparent/berry-asking.png";
 import berryExcited from "./assets/mascots/transparent/berry-excited.png";
 import berryBuildSuccess from "./assets/mascots/transparent/berry-build-success.png";
+import strawieHanging from "./assets/mascots/transparent/strawie_hanging.png";
+import berryHanging from "./assets/mascots/transparent/berry_hanging.png";
+import raspieHanging from "./assets/mascots/transparent/raspie_hanging.png";
 
 // ── Motion variants ─────────────────────────────────────────────────────
 const SPRING = { type: "spring" as const, stiffness: 220, damping: 24, mass: 0.9 };
@@ -640,25 +643,107 @@ const SectionHeader: React.FC<{ eyebrow: string; title: React.ReactNode; sub?: s
 
 // ── Editor showcase section ─────────────────────────────────────────────
 const EditorShowcase: React.FC = () => (
-  <section id="editor" className="px-6 py-28 bg-gradient-to-b from-apple-bg to-white">
+  <section id="editor" className="px-6 py-28 bg-gradient-to-b from-apple-bg to-white overflow-hidden">
     <div className="max-w-[1180px] mx-auto">
       <SectionHeader
         eyebrow="Live collaboration"
         title={<>Three cursors. One file.<br />Zero conflicts.</>}
         sub="Edits sync via Yjs CRDT — the algorithm that lets ten students type in the same file simultaneously without overwriting each other. Cursors carry names. Selections stay visible."
       />
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ ...SPRING, delay: 0.1 }}
-        className="max-w-[940px] mx-auto"
-      >
-        <CollabEditorView />
-      </motion.div>
+      <div className="max-w-[940px] mx-auto">
+        {/* Mascots row — sits between the subtitle and the editor card */}
+        <HangingMascots />
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ ...SPRING, delay: 0.1 }}
+          className="relative -mt-12 sm:-mt-14 md:-mt-16"
+        >
+          <CollabEditorView />
+        </motion.div>
+      </div>
     </div>
   </section>
 );
+
+// ── Hanging mascots (decorative) ────────────────────────────────────────
+type HangingMascotProps = {
+  src: string;
+  delay: number;
+  swingFrom: number;
+  swingTo: number;
+  duration: number;
+  positionClass: string;
+  sizeClass: string;
+};
+
+const HangingMascot: React.FC<HangingMascotProps> = ({
+  src,
+  delay,
+  swingFrom,
+  swingTo,
+  duration,
+  positionClass,
+  sizeClass,
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: -24 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, amount: 0.2 }}
+    transition={{ ...SPRING, delay }}
+    className={`absolute ${positionClass}`}
+    style={{ transformOrigin: "50% 0%" }}
+  >
+    <motion.img
+      src={src}
+      alt=""
+      animate={{ rotate: [swingFrom, swingTo, swingFrom] }}
+      transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+      style={{ transformOrigin: "50% 0%" }}
+      className={`${sizeClass} h-auto select-none drop-shadow-[0_8px_18px_rgba(0,0,0,0.12)]`}
+    />
+  </motion.div>
+);
+
+const HangingMascots: React.FC = () => {
+  // All three mascots share the same width for visual consistency
+  const sizeClass = "w-[110px] sm:w-[130px] md:w-[150px]";
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none relative w-full h-28 sm:h-32 md:h-40 z-10"
+    >
+      <HangingMascot
+        src={strawieHanging}
+        delay={0.15}
+        swingFrom={-1.5}
+        swingTo={1.5}
+        duration={6.5}
+        positionClass="left-[8%] sm:left-[10%] md:left-[12%] top-0"
+        sizeClass={sizeClass}
+      />
+      <HangingMascot
+        src={berryHanging}
+        delay={0.25}
+        swingFrom={2}
+        swingTo={-2}
+        duration={5.5}
+        positionClass="left-1/2 -translate-x-1/2 top-[18%]"
+        sizeClass={sizeClass}
+      />
+      <HangingMascot
+        src={raspieHanging}
+        delay={0.35}
+        swingFrom={1.5}
+        swingTo={-1.5}
+        duration={7}
+        positionClass="right-[8%] sm:right-[10%] md:right-[12%] top-0"
+        sizeClass={sizeClass}
+      />
+    </div>
+  );
+};
 
 // ── Bento ───────────────────────────────────────────────────────────────
 const BentoTile: React.FC<{

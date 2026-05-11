@@ -54,6 +54,16 @@ export const apiClient = {
   delete: (path: string) => api("DELETE", path),
 };
 
+export function getSandboxWsUrl(): string {
+  const httpBase =
+    (import.meta.env.VITE_API_URL as string | undefined) ??
+    (window.location.port === "5173" ? "http://localhost:8000" : "");
+  const wsBase = httpBase
+    ? httpBase.replace(/^http/, "ws")
+    : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+  return `${wsBase}/ws/sandbox/run`;
+}
+
 // --- Health ---
 
 export async function healthCheck(): Promise<any | null> {

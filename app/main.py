@@ -18,7 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.router import api_router
-from app.api import ws_collab
+from app.api import ws_collab, ws_sandbox
 from app.config import get_settings
 from app.core.limiter import limiter
 from app.db.init_db import init_db
@@ -87,8 +87,9 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
 
     app.include_router(api_router, prefix="/api")
-    # WebSocket collaboration endpoint (not versioned; used by Yjs clients).
+    # WebSocket endpoints (not versioned).
     app.include_router(ws_collab.router)
+    app.include_router(ws_sandbox.router)
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:
