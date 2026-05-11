@@ -6,7 +6,7 @@ export function StrawieLogoSvg({ size = 32 }: { size?: number }) {
         style={{
           width: size,
           height: size,
-          background: "var(--indigo)",
+          background: "linear-gradient(145deg, #EF5A68 0%, #BF1F36 100%)",
         }}
       >
         <svg

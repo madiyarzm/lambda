@@ -1,10 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Strawie">
   <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#6366f1"/>
+    <linearGradient id="berry" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EF5A68"/>
+      <stop offset="100%" stop-color="#BF1F36"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="7" fill="#0f172a"/>
-  <text x="5" y="24" font-family="Georgia, serif" font-size="22" font-weight="bold" fill="url(#g)">λ</text>
+  <rect width="32" height="32" rx="9" fill="url(#berry)"/>
+  <!-- Mark matches StrawieLogoSvg in Logo.tsx -->
+  <g transform="translate(7 7)" fill="none">
+    <path
+      d="M9 1C9 1 10.5 5.5 14 7C10.5 8.5 9 13 9 13C9 13 7.5 8.5 4 7C7.5 5.5 9 1 9 1Z"
+      fill="white"
+    />
+    <path
+      d="M9 13C9 13 9.8 15.2 11.5 16C9.8 16.8 9 19 9 19C9 19 8.2 16.8 6.5 16C8.2 15.2 9 13 9 13Z"
+      fill="white"
+      opacity="0.6"
+    />
+  </g>
 </svg>
