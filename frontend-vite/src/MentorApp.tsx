@@ -27,7 +27,7 @@ import {
   logout,
   updateUserRole,
 } from "./lib/api";
-import { Play, Square, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2 } from "lucide-react";
+import { Play, Square, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Confetti } from "./components/Confetti";
 import { ChalkLogo } from "./components/Logo";
 import { Avatar } from "./components/Avatar";
@@ -1856,6 +1856,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
 }) => {
   const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
   const [handRaised, setHandRaised] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
   const isHomework = !!assignment.due_at;
 
   // Streaming terminal state
@@ -2074,6 +2076,73 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
       )}
 
       <div className="flex flex-1 overflow-hidden">
+
+        {/* ── Left panel: assignment description ──────────────────────── */}
+        <div
+          className="flex flex-col shrink-0 border-r transition-all duration-200"
+          style={{
+            width: leftOpen ? 220 : 32,
+            borderColor: "var(--border)",
+            background: "var(--bg-2)",
+            overflow: "hidden",
+          }}
+        >
+          {leftOpen ? (
+            <>
+              <div
+                className="flex items-center justify-between px-3 py-2.5 border-b shrink-0"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>
+                  Problem
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLeftOpen(false)}
+                  className="rounded p-0.5 transition-colors"
+                  style={{ color: "var(--subtle)" }}
+                  title="Collapse"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto px-3 py-3 space-y-3">
+                <div>
+                  <div className="text-[11px] font-semibold mb-1" style={{ color: "var(--text)" }}>{assignment.title}</div>
+                  {assignment.description ? (
+                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-3)" }}>{assignment.description}</p>
+                  ) : (
+                    <p className="text-[10px]" style={{ color: "var(--border-2)" }}>No description provided.</p>
+                  )}
+                </div>
+                {assignment.due_at && (
+                  <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--subtle)" }}>Due date</div>
+                    <div className="text-[11px]" style={{ color: "var(--text-2)" }}>{formatDueDate(assignment.due_at)}</div>
+                    <div className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>{formatTimeRemaining(assignment.due_at)}</div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setLeftOpen(true)}
+              className="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors"
+              style={{ color: "var(--subtle)" }}
+              title="Expand problem panel"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span
+                className="text-[10px] font-semibold uppercase tracking-widest"
+                style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", color: "var(--subtle)" }}
+              >
+                Problem
+              </span>
+            </button>
+          )}
+        </div>
+
         {/* Editor + terminal */}
         <div
           className="flex-1 flex flex-col overflow-hidden border-r"
@@ -2322,131 +2391,140 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
           </div>
         </div>
 
-        {/* Submissions / Roster panel */}
-        {showRoster ? (
-          <div
-            className="w-64 flex flex-col shrink-0 border-r"
-            style={{ borderColor: "var(--border)", background: "var(--bg-2)" }}
-          >
-            <div
-              className="px-3 py-2.5 border-b flex items-center justify-between"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>Roster</span>
-              <span
-                className="text-[11px] font-mono"
-                style={{ color: submittedCount === rosterRows.length ? "var(--mint)" : "var(--muted)" }}
+        {/* ── Right panel: submissions / roster ───────────────────────── */}
+        <div
+          className="flex flex-col shrink-0 border-l transition-all duration-200"
+          style={{
+            width: rightOpen ? 256 : 32,
+            borderColor: "var(--border)",
+            background: "var(--bg-2)",
+            overflow: "hidden",
+          }}
+        >
+          {rightOpen ? (
+            <>
+              <div
+                className="px-3 py-2.5 border-b flex items-center justify-between shrink-0"
+                style={{ borderColor: "var(--border)" }}
               >
-                {submittedCount}/{rosterRows.length}
-              </span>
-            </div>
-            <ul className="flex-1 overflow-auto">
-              {rosterRows.map((row: any) => {
-                const sub = row.sub;
-                return (
-                  <li
-                    key={row.user_id}
-                    className="px-3 py-2.5 border-b transition-colors text-xs"
-                    style={{
-                      borderColor: "var(--border)",
-                      cursor: sub ? "pointer" : "default",
-                      opacity: sub ? 1 : 0.6,
-                      background: selectedSubmission?.id === sub?.id ? "var(--bg-3)" : "transparent",
-                    }}
-                    onClick={() => sub && onSelectSubmission(selectedSubmission?.id === sub.id ? null : sub)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Avatar name={row.name || "Student"} size={22} />
-                        <span className="font-medium truncate">
-                          {row.name || "Student"}
-                          {firstSolverId && row.sub?.user_id === firstSolverId && row.sub?.status === "success" && (
-                            <span title="First to solve!" className="ml-1">👑</span>
-                          )}
-                        </span>
-                      </div>
-                      <Badge type={row.submitted ? (row.late ? "timeout" : "success") : "failed"} label={row.submitted ? (row.late ? "Late" : "✓") : "Missing"} />
-                    </div>
-                    {sub && (
-                      <div className="mt-1 text-[10px]" style={{ color: "var(--subtle)" }}>
-                        {new Date(sub.submitted_at).toLocaleString()}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : (
-          <div
-            className="w-64 flex flex-col shrink-0 border-r"
-            style={{ borderColor: "var(--border)", background: "var(--bg-2)" }}
-          >
-            <div
-              className="px-3 py-2.5 border-b flex items-center justify-between"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>Submissions</span>
-              {submissions.length > 0 && (
-                <span className="text-[11px] font-mono" style={{ color: "var(--muted)" }}>{submissions.length}</span>
-              )}
-            </div>
-            {submissions.length === 0 ? (
-              <div className="flex-1 overflow-auto">
-                {/* Assignment info when no submissions */}
-                <div className="px-3 pt-4 pb-3 border-b" style={{ borderColor: "var(--border)" }}>
-                  <div className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--subtle)" }}>Assignment</div>
-                  <div className="text-xs font-semibold mb-1">{assignment.title}</div>
-                  {assignment.description && (
-                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-3)" }}>{assignment.description}</p>
-                  )}
-                </div>
-                {assignment.due_at && (
-                  <div className="px-3 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "var(--subtle)" }}>Due date</div>
-                    <div className="text-[11px]" style={{ color: "var(--text-2)" }}>{formatDueDate(assignment.due_at)}</div>
-                    <div className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>{formatTimeRemaining(assignment.due_at)}</div>
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => setRightOpen(false)}
+                  className="rounded p-0.5 transition-colors"
+                  style={{ color: "var(--subtle)" }}
+                  title="Collapse"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>
+                  {showRoster ? "Roster" : "Submissions"}
+                </span>
+                {showRoster ? (
+                  <span className="text-[11px] font-mono" style={{ color: submittedCount === rosterRows.length ? "var(--mint)" : "var(--muted)" }}>
+                    {submittedCount}/{rosterRows.length}
+                  </span>
+                ) : (
+                  submissions.length > 0
+                    ? <span className="text-[11px] font-mono" style={{ color: "var(--muted)" }}>{submissions.length}</span>
+                    : <span />
                 )}
-                <div className="px-3 py-4 text-center">
-                  <div className="text-[11px]" style={{ color: "var(--subtle)" }}>No submissions yet</div>
-                  <div className="text-[10px] mt-1" style={{ color: "var(--border-2)" }}>Waiting for students to submit</div>
-                </div>
               </div>
-            ) : (
-              <ul className="flex-1 overflow-auto">
-                {submissions.map(s => (
-                  <li
-                    key={s.id}
-                    className="px-3 py-2.5 border-b cursor-pointer transition-colors text-xs"
-                    style={{
-                      borderColor: "var(--border)",
-                      background: selectedSubmission?.id === s.id ? "var(--bg-3)" : "transparent",
-                    }}
-                    onClick={() => onSelectSubmission(selectedSubmission?.id === s.id ? null : s)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Avatar name={s.submitter_name || "?"} size={22} />
-                        <span className="font-medium truncate">
-                          {s.submitter_name || "Unknown"}
-                          {firstSolverId === s.user_id && s.status === "success" && <span className="ml-1">👑</span>}
-                        </span>
+
+              {showRoster ? (
+                <ul className="flex-1 overflow-auto">
+                  {rosterRows.map((row: any) => {
+                    const sub = row.sub;
+                    return (
+                      <li
+                        key={row.user_id}
+                        className="px-3 py-2.5 border-b transition-colors text-xs"
+                        style={{
+                          borderColor: "var(--border)",
+                          cursor: sub ? "pointer" : "default",
+                          opacity: sub ? 1 : 0.6,
+                          background: selectedSubmission?.id === sub?.id ? "var(--bg-3)" : "transparent",
+                        }}
+                        onClick={() => sub && onSelectSubmission(selectedSubmission?.id === sub.id ? null : sub)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar name={row.name || "Student"} size={22} />
+                            <span className="font-medium truncate">
+                              {row.name || "Student"}
+                              {firstSolverId && row.sub?.user_id === firstSolverId && row.sub?.status === "success" && (
+                                <span title="First to solve!" className="ml-1">👑</span>
+                              )}
+                            </span>
+                          </div>
+                          <Badge type={row.submitted ? (row.late ? "timeout" : "success") : "failed"} label={row.submitted ? (row.late ? "Late" : "✓") : "Missing"} />
+                        </div>
+                        {sub && (
+                          <div className="mt-1 text-[10px]" style={{ color: "var(--subtle)" }}>
+                            {new Date(sub.submitted_at).toLocaleString()}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : submissions.length === 0 ? (
+                <div className="flex-1 overflow-auto">
+                  <div className="px-3 py-4 text-center">
+                    <div className="text-[11px]" style={{ color: "var(--subtle)" }}>No submissions yet</div>
+                    <div className="text-[10px] mt-1" style={{ color: "var(--border-2)" }}>Waiting for students to submit</div>
+                  </div>
+                </div>
+              ) : (
+                <ul className="flex-1 overflow-auto">
+                  {submissions.map(s => (
+                    <li
+                      key={s.id}
+                      className="px-3 py-2.5 border-b cursor-pointer transition-colors text-xs"
+                      style={{
+                        borderColor: "var(--border)",
+                        background: selectedSubmission?.id === s.id ? "var(--bg-3)" : "transparent",
+                      }}
+                      onClick={() => onSelectSubmission(selectedSubmission?.id === s.id ? null : s)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar name={s.submitter_name || "?"} size={22} />
+                          <span className="font-medium truncate">
+                            {s.submitter_name || "Unknown"}
+                            {firstSolverId === s.user_id && s.status === "success" && <span className="ml-1">👑</span>}
+                          </span>
+                        </div>
+                        <Badge
+                          type={s.status === "success" ? "success" : s.status === "timeout" ? "timeout" : "failed"}
+                          label={s.status_display || s.status}
+                        />
                       </div>
-                      <Badge
-                        type={s.status === "success" ? "success" : s.status === "timeout" ? "timeout" : "failed"}
-                        label={s.status_display || s.status}
-                      />
-                    </div>
-                    <div className="mt-1 text-[10px]" style={{ color: "var(--subtle)" }}>
-                      {new Date(s.submitted_at).toLocaleString()}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+                      <div className="mt-1 text-[10px]" style={{ color: "var(--subtle)" }}>
+                        {new Date(s.submitted_at).toLocaleString()}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRightOpen(true)}
+              className="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors"
+              style={{ color: "var(--subtle)" }}
+              title="Expand submissions panel"
+            >
+              <span
+                className="text-[10px] font-semibold uppercase tracking-widest"
+                style={{ writingMode: "vertical-rl", color: "var(--subtle)" }}
+              >
+                {showRoster ? "Roster" : "Submissions"}
+              </span>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
       </div>
     </div>
