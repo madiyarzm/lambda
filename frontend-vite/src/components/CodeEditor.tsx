@@ -7,7 +7,8 @@
 import React, { useMemo, useRef, useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { Decoration, DecorationSet, EditorView } from "@codemirror/view";
+import { Decoration, EditorView } from "@codemirror/view";
+import type { DecorationSet } from "@codemirror/view";
 import { StateEffect, StateField, RangeSetBuilder } from "@codemirror/state";
 import { tags as t } from "@lezer/highlight";
 import { python } from "@codemirror/lang-python";
