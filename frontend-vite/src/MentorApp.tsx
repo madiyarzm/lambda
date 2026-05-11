@@ -922,7 +922,6 @@ export const MentorApp: React.FC = () => {
               assignment={currentAssignment}
               code={code}
               setCode={handleCodeChange}
-              output={output}
               roomId={roomIdForEditor}
               drawingRoomId={drawingRoomId}
               userName={user?.name || "Anonymous"}
