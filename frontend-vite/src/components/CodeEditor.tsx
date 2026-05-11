@@ -7,7 +7,8 @@
 import React, { useMemo, useRef, useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { EditorView } from "@codemirror/view";
+import { Decoration, DecorationSet, EditorView } from "@codemirror/view";
+import { StateEffect, StateField, RangeSetBuilder } from "@codemirror/state";
 import { tags as t } from "@lezer/highlight";
 import { python } from "@codemirror/lang-python";
 import { bracketMatching } from "@codemirror/language";
@@ -30,7 +31,31 @@ interface CodeEditorProps {
   userRole?: string;
   handRaised?: boolean;
   onPeersChange?: (peers: PeerInfo[]) => void;
+  errorLines?: number[];
 }
+
+const setErrorLinesEffect = StateEffect.define<number[]>();
+
+const errorLineField = StateField.define<DecorationSet>({
+  create() { return Decoration.none; },
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const effect of tr.effects) {
+      if (effect.is(setErrorLinesEffect)) {
+        const builder = new RangeSetBuilder<Decoration>();
+        for (const lineNum of [...effect.value].sort((a, b) => a - b)) {
+          if (lineNum >= 1 && lineNum <= tr.state.doc.lines) {
+            const line = tr.state.doc.line(lineNum);
+            builder.add(line.from, line.from, Decoration.line({ class: "cm-error-line" }));
+          }
+        }
+        deco = builder.finish();
+      }
+    }
+    return deco;
+  },
+  provide: f => EditorView.decorations.from(f),
+});
 
 const PYTHON_SNIPPETS = [
   { label: "print", type: "function", apply: "print()", detail: "Built-in function", info: "Prints the given values to standard output." },
@@ -66,6 +91,7 @@ const strawieEditorTheme = EditorView.theme({
   },
   ".cm-lineNumbers .cm-gutterElement": { padding: "0 12px 0 8px" },
   ".cm-scroller": { overflow: "auto" },
+  ".cm-error-line": { backgroundColor: "#f8717120 !important", borderLeft: "2px solid #f87171" },
   ".cm-matchingBracket": { backgroundColor: "#818cf840", outline: "1px solid #818cf880" },
   ".cm-tooltip": {
     backgroundColor: "#1e293b",
@@ -117,8 +143,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   userRole,
   handRaised,
   onPeersChange,
+  errorLines,
 }) => {
   const ydocRef = useRef<Y.Doc | null>(null);
+  const viewRef = useRef<EditorView | null>(null);
   if (!ydocRef.current) {
     ydocRef.current = new Y.Doc();
   }
@@ -132,6 +160,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   useEffect(() => { onPeersChangeRef.current?.(peers); }, [peers]);
 
   useEffect(() => { setHandRaised(!!handRaised); }, [handRaised, setHandRaised]);
+
+  useEffect(() => {
+    if (!viewRef.current) return;
+    viewRef.current.dispatch({ effects: [setErrorLinesEffect.of(errorLines ?? [])] });
+  }, [errorLines]);
 
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -159,6 +192,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         activateOnTyping: true,
       }),
       yCollab(ytext, awareness ?? undefined),
+      errorLineField,
       ...strawieTheme,
     ],
     [ytext, awareness],
@@ -188,6 +222,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         className={`flex-1 min-h-0 text-[13px] md:text-sm font-mono ${className}`}
         theme="none"
         extensions={extensions}
+        onCreateEditor={(view) => { viewRef.current = view; }}
         basicSetup={{
           lineNumbers: true,
           highlightActiveLineGutter: true,

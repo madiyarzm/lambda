@@ -27,7 +27,7 @@ import {
   logout,
   updateUserRole,
 } from "./lib/api";
-import { Play, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2 } from "lucide-react";
+import { Play, Square, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2 } from "lucide-react";
 import { Confetti } from "./components/Confetti";
 import { ChalkLogo } from "./components/Logo";
 import { Avatar } from "./components/Avatar";
@@ -1863,10 +1863,15 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [inputPrompt, setInputPrompt] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
+  const [terminalHeight, setTerminalHeight] = useState(176);
+  const [lastRunInfo, setLastRunInfo] = useState<{ exitCode: number; elapsed: number } | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lineId = useRef(0);
+  const runCount = useRef(0);
+  const runStartRef = useRef(0);
+  const dragStateRef = useRef<{ startY: number; startH: number } | null>(null);
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -1884,8 +1889,6 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
 
   const handleRunLocal = () => {
     if (isRunning) return;
-    // Null out handlers before closing so the old onclose doesn't reset state
-    // for the new run that's about to start.
     if (wsRef.current) {
       wsRef.current.onclose = null;
       wsRef.current.onerror = null;
@@ -1897,10 +1900,19 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     const url = `${getSandboxWsUrl()}?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
-    setStreamLines([]);
+
+    runCount.current += 1;
+    const thisRun = runCount.current;
+    if (thisRun === 1) {
+      setStreamLines([]);
+    } else {
+      setStreamLines(prev => [...prev, { id: lineId.current++, text: `── Run ${thisRun} ──\n`, type: "info" }]);
+    }
     setIsRunning(true);
     setInputPrompt(null);
     setInputValue("");
+    setLastRunInfo(null);
+    runStartRef.current = Date.now();
 
     ws.onopen = () => { ws.send(JSON.stringify({ code })); };
 
@@ -1911,6 +1923,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
       } else if (msg.type === "input_request") {
         setInputPrompt(msg.prompt ?? "");
       } else if (msg.type === "done") {
+        const elapsed = parseFloat(((Date.now() - runStartRef.current) / 1000).toFixed(2));
+        setLastRunInfo({ exitCode: msg.exit_code ?? 0, elapsed });
         setIsRunning(false);
         setInputPrompt(null);
       }
@@ -1927,6 +1941,45 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
       setInputPrompt(null);
     };
   };
+
+  const handleStop = () => {
+    if (!wsRef.current) return;
+    wsRef.current.onclose = null;
+    wsRef.current.onerror = null;
+    wsRef.current.onmessage = null;
+    wsRef.current.close();
+    wsRef.current = null;
+    setStreamLines(prev => [...prev, { id: lineId.current++, text: "^C\n", type: "stderr" }]);
+    setIsRunning(false);
+    setInputPrompt(null);
+  };
+
+  const handleTerminalDragStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStateRef.current = { startY: e.clientY, startH: terminalHeight };
+    const onMove = (ev: MouseEvent) => {
+      if (!dragStateRef.current) return;
+      const delta = dragStateRef.current.startY - ev.clientY;
+      setTerminalHeight(Math.max(80, Math.min(500, dragStateRef.current.startH + delta)));
+    };
+    const onUp = () => {
+      dragStateRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const errorLines = React.useMemo(() => {
+    const lines: number[] = [];
+    for (const l of streamLines) {
+      if (l.type !== "stderr") continue;
+      const m = l.text.match(/File ".*?", line (\d+)/);
+      if (m) lines.push(parseInt(m[1], 10));
+    }
+    return lines.length ? lines : undefined;
+  }, [streamLines]);
 
   const handleSendInput = () => {
     if (!wsRef.current || inputPrompt === null) return;
@@ -2089,6 +2142,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 userRole={userRole}
                 handRaised={handRaised}
                 className="bg-[var(--bg)]"
+                errorLines={errorLines}
               />
             </div>
             <div className={editorMode === "draw" ? "h-full" : "hidden"}>
@@ -2100,15 +2154,25 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
           {editorMode === "code" && (
             <div className="border-t" style={{ borderColor: "var(--border)", background: "var(--bg-2)" }}>
               <div className="flex items-center gap-2 px-3 py-2">
-                <button
-                  onClick={handleRunLocal}
-                  disabled={isRunning}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[10px] font-semibold disabled:opacity-60 transition-all"
-                  style={{ background: "var(--indigo)", color: "#fff", boxShadow: "0 0 12px oklch(55% 0.22 264 / 0.35)" }}
-                >
-                  <Play className="h-3 w-3" />
-                  {isRunning ? "Running…" : "Run"}
-                </button>
+                {isRunning ? (
+                  <button
+                    onClick={handleStop}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[10px] font-semibold transition-all"
+                    style={{ background: "#ef4444", color: "#fff", boxShadow: "0 0 12px #ef444440" }}
+                  >
+                    <Square className="h-3 w-3" />
+                    Stop
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRunLocal}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[10px] font-semibold transition-all"
+                    style={{ background: "var(--indigo)", color: "#fff", boxShadow: "0 0 12px oklch(55% 0.22 264 / 0.35)" }}
+                  >
+                    <Play className="h-3 w-3" />
+                    Run
+                  </button>
+                )}
                 <button
                   onClick={onSubmit}
                   disabled={loading}
@@ -2175,8 +2239,17 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             </div>
           )}
 
+          {/* Drag handle */}
+          <div
+            onMouseDown={handleTerminalDragStart}
+            className="h-1 shrink-0 cursor-ns-resize transition-colors"
+            style={{ background: "#ffffff08" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#ffffff18")}
+            onMouseLeave={e => (e.currentTarget.style.background = "#ffffff08")}
+          />
+
           {/* Terminal */}
-          <div className="border-t flex flex-col" style={{ borderColor: "var(--border)", background: "#0d1117" }}>
+          <div className="flex flex-col shrink-0" style={{ height: terminalHeight, background: "#0d1117" }}>
             <div
               className="flex items-center justify-between px-3 py-1.5 shrink-0"
               style={{ borderBottom: "1px solid #ffffff12" }}
@@ -2186,10 +2259,18 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 {isRunning && (
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#4ade80", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
                 )}
+                {inputPrompt !== null && (
+                  <span className="text-[10px]" style={{ color: "#4ade80" }}>⌨ waiting for input</span>
+                )}
+                {!isRunning && lastRunInfo !== null && (
+                  <span className="text-[10px] font-mono" style={{ color: lastRunInfo.exitCode === 0 ? "#4ade80" : "#f87171" }}>
+                    Exit {lastRunInfo.exitCode} · {lastRunInfo.elapsed}s
+                  </span>
+                )}
               </div>
               <button
                 type="button"
-                onClick={() => { setStreamLines([]); }}
+                onClick={() => { setStreamLines([]); runCount.current = 0; setLastRunInfo(null); }}
                 className="text-[10px] transition-colors"
                 style={{ color: "#444" }}
               >
@@ -2198,7 +2279,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             </div>
             <div
               ref={terminalRef}
-              className="h-44 overflow-auto px-3 py-2 font-mono text-[12.5px] leading-relaxed"
+              className="flex-1 overflow-auto px-3 py-2 font-mono text-[12.5px] leading-relaxed"
               style={{ background: "#0d1117" }}
             >
               {streamLines.length === 0 && !isRunning && inputPrompt === null ? (
@@ -2207,7 +2288,13 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 <>
                   <pre className="whitespace-pre-wrap break-words m-0" style={{ color: "#e2e8f0" }}>
                     {streamLines.map(line => (
-                      <span key={line.id} style={{ color: line.type === "stderr" ? "#f87171" : "#e2e8f0" }}>
+                      <span
+                        key={line.id}
+                        style={{
+                          color: line.type === "stderr" ? "#f87171" : line.type === "info" ? "#555" : "#e2e8f0",
+                          fontStyle: line.type === "info" ? "italic" : undefined,
+                        }}
+                      >
                         {line.text}
                       </span>
                     ))}
