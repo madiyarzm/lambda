@@ -2205,15 +2205,13 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 <span style={{ color: "#444" }}>Run your code to see output here...</span>
               ) : (
                 <>
-                  {streamLines.map(line => (
-                    <pre
-                      key={line.id}
-                      className="whitespace-pre-wrap break-words m-0"
-                      style={{ color: line.type === "stderr" ? "#f87171" : "#e2e8f0" }}
-                    >
-                      {line.text}
-                    </pre>
-                  ))}
+                  <pre className="whitespace-pre-wrap break-words m-0" style={{ color: "#e2e8f0" }}>
+                    {streamLines.map(line => (
+                      <span key={line.id} style={{ color: line.type === "stderr" ? "#f87171" : "#e2e8f0" }}>
+                        {line.text}
+                      </span>
+                    ))}
+                  </pre>
                   {inputPrompt !== null && (
                     <div className="flex items-center">
                       <span className="shrink-0 mr-1" style={{ color: "#4ade80" }}>{inputPrompt || "›"}</span>
