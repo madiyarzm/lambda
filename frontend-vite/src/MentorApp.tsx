@@ -1884,7 +1884,14 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
 
   const handleRunLocal = () => {
     if (isRunning) return;
-    wsRef.current?.close();
+    // Null out handlers before closing so the old onclose doesn't reset state
+    // for the new run that's about to start.
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.close();
+    }
     const token = window.localStorage.getItem("lambda_token");
     if (!token) return;
     const url = `${getSandboxWsUrl()}?token=${encodeURIComponent(token)}`;
@@ -1895,9 +1902,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     setInputPrompt(null);
     setInputValue("");
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ code }));
-    };
+    ws.onopen = () => { ws.send(JSON.stringify({ code })); };
 
     ws.onmessage = (evt) => {
       const msg = JSON.parse(evt.data as string);
@@ -2171,83 +2176,64 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
           )}
 
           {/* Terminal */}
-          <div className="border-t" style={{ borderColor: "var(--border)" }}>
+          <div className="border-t flex flex-col" style={{ borderColor: "var(--border)", background: "#0d1117" }}>
             <div
-              className="flex items-center justify-between px-3 py-2"
-              style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--border)" }}
+              className="flex items-center justify-between px-3 py-1.5 shrink-0"
+              style={{ borderBottom: "1px solid #ffffff12" }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>Terminal</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#555" }}>Terminal</span>
                 {isRunning && (
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: "var(--mint)", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }}
-                  />
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#4ade80", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => { setStreamLines([]); }}
-                className="text-[10px] px-1.5 py-0.5 rounded-[6px] border transition-colors"
-                style={{ border: "1px solid var(--border)", color: "var(--subtle)" }}
+                className="text-[10px] transition-colors"
+                style={{ color: "#444" }}
               >
                 Clear
               </button>
             </div>
             <div
               ref={terminalRef}
-              className="h-36 overflow-auto px-3 py-2 font-mono text-[11px]"
-              style={{ background: "var(--bg)" }}
+              className="h-44 overflow-auto px-3 py-2 font-mono text-[12.5px] leading-relaxed"
+              style={{ background: "#0d1117" }}
             >
-              {streamLines.length === 0 && !isRunning ? (
-                <div style={{ color: "var(--subtle)" }}>
-                  Press <span style={{ color: "var(--indigo)" }}>Run</span> to execute.
-                </div>
+              {streamLines.length === 0 && !isRunning && inputPrompt === null ? (
+                <span style={{ color: "#444" }}>Run your code to see output here...</span>
               ) : (
-                <div>
+                <>
                   {streamLines.map(line => (
                     <pre
                       key={line.id}
                       className="whitespace-pre-wrap break-words m-0"
-                      style={{ color: line.type === "stderr" ? "var(--rose)" : "var(--text)" }}
+                      style={{ color: line.type === "stderr" ? "#f87171" : "#e2e8f0" }}
                     >
                       {line.text}
                     </pre>
                   ))}
-                  {isRunning && inputPrompt === null && (
-                    <span className="inline-block w-2 h-3 align-middle" style={{ background: "var(--indigo)", animation: "pulseDot 1s step-end infinite" }} />
+                  {inputPrompt !== null && (
+                    <div className="flex items-center">
+                      <span className="shrink-0 mr-1" style={{ color: "#4ade80" }}>{inputPrompt || "›"}</span>
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={inputValue}
+                        onChange={e => setInputValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") handleSendInput(); }}
+                        className="flex-1 bg-transparent outline-none font-mono text-[12.5px]"
+                        style={{ color: "#e2e8f0", caretColor: "#4ade80" }}
+                      />
+                    </div>
                   )}
-                </div>
+                  {isRunning && inputPrompt === null && (
+                    <span className="inline-block w-[7px] h-[14px] align-middle" style={{ background: "#4ade80", animation: "pulseDot 1s step-end infinite" }} />
+                  )}
+                </>
               )}
             </div>
-            {inputPrompt !== null && (
-              <div
-                className="border-t flex items-center gap-2 px-3 py-1.5"
-                style={{ borderColor: "oklch(72% 0.18 168 / 0.3)", background: "var(--mint-10)" }}
-              >
-                <span className="text-[11px] font-mono shrink-0" style={{ color: "var(--mint)" }}>
-                  {inputPrompt || "›"}
-                </span>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={e => setInputValue(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") handleSendInput(); }}
-                  placeholder="Type and press Enter…"
-                  className="flex-1 text-[11px] px-2 py-0.5 rounded-[6px] focus:outline-none font-mono"
-                  style={{ background: "var(--bg)", border: "1px solid oklch(72% 0.18 168 / 0.3)", color: "var(--text)" }}
-                />
-                <button
-                  type="button"
-                  onClick={handleSendInput}
-                  className="text-[11px] px-2 py-0.5 rounded-[6px]"
-                  style={{ background: "var(--mint-10)", color: "var(--mint)", border: "1px solid oklch(72% 0.18 168 / 0.3)" }}
-                >
-                  Enter
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
