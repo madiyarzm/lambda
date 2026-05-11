@@ -20,14 +20,15 @@ import {
 import { googleLogin, isLoggedIn } from "./lib/api";
 import { StrawieLogoSvg } from "./components/Logo";
 
-import strawieTeaching from "./assets/mascots/transparent/strawie-teaching.png";
-import berryFocused from "./assets/mascots/transparent/berry-focused.png";
-import berryAsking from "./assets/mascots/transparent/berry-asking.png";
-import berryExcited from "./assets/mascots/transparent/berry-excited.png";
-import berryBuildSuccess from "./assets/mascots/transparent/berry-build-success.png";
-import strawieHanging from "./assets/mascots/transparent/strawie_hanging.png";
-import berryHanging from "./assets/mascots/transparent/berry_hanging.png";
-import raspieHanging from "./assets/mascots/transparent/raspie_hanging.png";
+import strawieTeaching from "./assets/mascots/characters/strawie-teaching.png";
+import berryFocused from "./assets/mascots/characters/berry-focused.png";
+import berryAsking from "./assets/mascots/characters/berry-asking.png";
+import berryBuildSuccess from "./assets/mascots/characters/berry-build-success.png";
+import strawieHanging from "./assets/mascots/hanging/strawie-hanging.png";
+import berryHanging from "./assets/mascots/hanging/berry-hanging.png";
+import raspieHanging from "./assets/mascots/hanging/raspie-hanging.png";
+import raspieSliding from "./assets/mascots/steps/raspie-sliding.png";
+import raspieReady from "./assets/mascots/cta/raspie-ready.png";
 
 // ── Motion variants ─────────────────────────────────────────────────────
 const SPRING = { type: "spring" as const, stiffness: 220, damping: 24, mass: 0.9 };
@@ -706,44 +707,60 @@ const HangingMascot: React.FC<HangingMascotProps> = ({
   </motion.div>
 );
 
-const HangingMascots: React.FC = () => {
-  // All three mascots share the same width for visual consistency
-  const sizeClass = "w-[110px] sm:w-[130px] md:w-[150px]";
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none relative w-full h-28 sm:h-32 md:h-40 z-10"
-    >
-      <HangingMascot
-        src={strawieHanging}
-        delay={0.15}
-        swingFrom={-1.5}
-        swingTo={1.5}
-        duration={6.5}
-        positionClass="left-[8%] sm:left-[10%] md:left-[12%] top-0"
-        sizeClass={sizeClass}
-      />
-      <HangingMascot
-        src={berryHanging}
-        delay={0.25}
-        swingFrom={2}
-        swingTo={-2}
-        duration={5.5}
-        positionClass="left-1/2 -translate-x-1/2 top-[18%]"
-        sizeClass={sizeClass}
-      />
-      <HangingMascot
-        src={raspieHanging}
-        delay={0.35}
-        swingFrom={1.5}
-        swingTo={-1.5}
-        duration={7}
-        positionClass="right-[8%] sm:right-[10%] md:right-[12%] top-0"
-        sizeClass={sizeClass}
-      />
-    </div>
-  );
-};
+// ─────────────────────────────────────────────────────────────────────────
+//  MASCOT TWEAK PANEL — edit anything here to reposition / resize mascots
+// ─────────────────────────────────────────────────────────────────────────
+//
+//  HORIZONTAL: change left-[N%] / right-[N%] (or use left-[Npx])
+//  VERTICAL:   change top-[N%] / top-[Npx]   (negative also works: top-[-20px])
+//  SIZE:       all three share MASCOT_SIZE — bump it up/down for larger/smaller
+//              (override per mascot by replacing sizeClass on that mascot)
+//  ROW HEIGHT: MASCOT_ROW_HEIGHT controls how tall the mascots area is —
+//              raise it to push them further from the editor card below.
+//  OVERLAP:    the editor card pulls up via -mt-* in <EditorShowcase/>.
+//              Adjust the -mt-* there to control how much mascots overlap
+//              the top of the editor (more negative = more overlap).
+//
+const MASCOT_SIZE = "w-[90px] sm:w-[105px] md:w-[120px]";
+const MASCOT_ROW_HEIGHT = "h-24 sm:h-28 md:h-32";
+
+const HangingMascots: React.FC = () => (
+  <div
+    aria-hidden="true"
+    className={`pointer-events-none relative w-full ${MASCOT_ROW_HEIGHT} z-10`}
+  >
+    {/* STRAWIE — left side */}
+    <HangingMascot
+      src={strawieHanging}
+      delay={0.15}
+      swingFrom={0}
+      swingTo={0}
+      duration={8}
+      positionClass="left-[6%] sm:left-[10%] md:left-[14%] top-[-44px]"
+      sizeClass={MASCOT_SIZE}
+    />
+    {/* BERRY — center, slightly lower */}
+    <HangingMascot
+      src={berryHanging}
+      delay={0.25}
+      swingFrom={0}
+      swingTo={0}
+      duration={7}
+      positionClass="left-[50%] -translate-x-1/2 top-[-18px]"
+      sizeClass={MASCOT_SIZE}
+    />
+    {/* RASPIE — right side */}
+    <HangingMascot
+      src={raspieHanging}
+      delay={0.35}
+      swingFrom={0}
+      swingTo={0}
+      duration={9}
+      positionClass="right-[6%] sm:right-[10%] md:right-[16%] top-[-28px]"
+      sizeClass={MASCOT_SIZE}
+    />
+  </div>
+);
 
 // ── Bento ───────────────────────────────────────────────────────────────
 const BentoTile: React.FC<{
@@ -769,8 +786,8 @@ const Bento: React.FC = () => (
     <div className="max-w-[1180px] mx-auto">
       <SectionHeader
         eyebrow="Features"
-        title={<>Everything a small classroom needs.</>}
-        sub="Built-in, not bolted on. Strawie ships with everything a small classroom needs — editor, runner, grader, and hints — no integrations required."
+        title={<>Everything a classroom needs.</>}
+        sub="Built-in, not bolted on. Strawie ships with everything a classroom needs — editor, runner, grader, and hints — no integrations required."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
@@ -1004,9 +1021,15 @@ const Bento: React.FC = () => (
 
 // ── How it works ───────────────────────────────────────────────────────
 const Steps: React.FC = () => {
-  const steps: { n: string; title: string; desc: string; mascot?: string }[] = [
+  const steps: { n: string; title: string; desc: string; mascot?: string; mascotClass?: string }[] = [
     { n: "01", title: "Create a classroom", desc: "Sign in with Google. Name your group. Done.", mascot: strawieTeaching },
-    { n: "02", title: "Share the code", desc: "Send a 6-character invite to your students." },
+    {
+      n: "02",
+      title: "Share the code",
+      desc: "Send a 6-character invite to your students.",
+      mascot: raspieSliding,
+      mascotClass: "h-16 w-auto max-w-[7rem] object-contain object-left drop-shadow-sm mb-3",
+    },
     { n: "03", title: "Code together", desc: "Open the same file. Cursors and edits sync live.", mascot: berryAsking },
     { n: "04", title: "Submit & review", desc: "Tests run automatically. Leave feedback inline.", mascot: berryBuildSuccess },
   ];
@@ -1032,7 +1055,9 @@ const Steps: React.FC = () => {
                 <img
                   src={s.mascot}
                   alt=""
-                  className="w-16 h-16 object-contain drop-shadow-sm mb-3"
+                  className={
+                    s.mascotClass ?? "w-16 h-16 object-contain drop-shadow-sm mb-3"
+                  }
                 />
               )}
               <div className="font-mono text-[12px] font-semibold text-apple-ink-4 mb-3">
@@ -1157,7 +1182,7 @@ const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
 
         <div className="relative">
           <motion.img
-            src={berryExcited}
+            src={raspieReady}
             alt=""
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             whileInView={{ opacity: 1, y: 0, scale: 1 }}
