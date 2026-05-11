@@ -349,8 +349,7 @@ export const MentorApp: React.FC = () => {
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [groupClassrooms, setGroupClassrooms] = useState<Record<string, any[]>>({});
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_sidebarCollapsed, _setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentClassroom, setCurrentClassroom] = useState<any | null>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [currentAssignment, setCurrentAssignment] = useState<any | null>(null);
@@ -685,25 +684,38 @@ export const MentorApp: React.FC = () => {
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside style={{
-        width: 220, flexShrink: 0, height: "100vh", position: "sticky", top: 0,
-        display: "flex", flexDirection: "column",
-        background: "var(--bg)", borderRight: "1px solid var(--border)", padding: "18px 10px",
+        width: sidebarCollapsed ? 48 : 220,
+        flexShrink: 0, height: "100vh", position: "sticky", top: 0,
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        background: "var(--bg)", borderRight: "1px solid var(--border)",
+        padding: sidebarCollapsed ? "14px 6px" : "18px 10px",
+        transition: "width 200ms ease, padding 200ms ease",
       }}>
-        {/* Logo */}
-        <div style={{ padding: "2px 10px 18px", borderBottom: "1px solid var(--border)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <ChalkLogo size={26} />
-          {/* Theme toggle */}
-          <button
-            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-            style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-3)", fontSize: 14 }}
-            title="Toggle theme"
-          >
-            {theme === "dark" ? "☀" : "☾"}
-          </button>
+        {/* Logo + collapse toggle */}
+        <div style={{ borderBottom: "1px solid var(--border)", marginBottom: 10, paddingBottom: 14, display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "space-between", gap: 6 }}>
+          {!sidebarCollapsed && <ChalkLogo size={26} />}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {!sidebarCollapsed && (
+              <button
+                onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-3)", fontSize: 14 }}
+                title="Toggle theme"
+              >
+                {theme === "dark" ? "☀" : "☾"}
+              </button>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(v => !v)}
+              style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-3)" }}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+            </button>
+          </div>
         </div>
 
         {/* Nav items */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, overflow: "hidden" }}>
           {navItems.map(item => {
             const isActive = view === item.id;
             const isDisabled = (item.id === "classroom" && !currentClassroom) ||
@@ -713,9 +725,12 @@ export const MentorApp: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
+                title={sidebarCollapsed ? item.label : undefined}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
-                  padding: "9px 12px", borderRadius: "var(--r)", border: "none",
+                  padding: sidebarCollapsed ? "9px 0" : "9px 12px",
+                  justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                  borderRadius: "var(--r)", border: "none",
                   background: isActive ? "var(--indigo-10)" : "transparent",
                   color: isActive ? "var(--indigo)" : isDisabled ? "var(--border-2)" : "var(--text-3)",
                   cursor: isDisabled ? "default" : "pointer",
@@ -723,16 +738,16 @@ export const MentorApp: React.FC = () => {
                   transition: "background 120ms",
                 }}
               >
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                 </svg>
-                {item.label}
+                {!sidebarCollapsed && item.label}
               </button>
             );
           })}
 
-          {/* Classroom list (under Classroom nav) */}
-          {groups.length > 0 && (
+          {/* Classroom list — hidden when collapsed */}
+          {!sidebarCollapsed && groups.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 12px 6px" }}>
                 Classrooms
@@ -817,8 +832,8 @@ export const MentorApp: React.FC = () => {
           )}
         </div>
 
-        {/* VIEW AS — admin only */}
-        {isAdmin && (
+        {/* VIEW AS — admin only, hidden when collapsed */}
+        {!sidebarCollapsed && isAdmin && (
           <div style={{ background: "var(--bg-2)", borderRadius: "var(--r)", padding: 10, marginBottom: 12 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>View as</div>
             <div style={{ display: "flex", gap: 4, background: "var(--bg-3)", borderRadius: 8, padding: 3 }}>
@@ -841,27 +856,31 @@ export const MentorApp: React.FC = () => {
 
         {/* User row */}
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px 8px" }}>
-            <Avatar name={user?.name || user?.email || "?"} size={32} pulse={false} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.name}</div>
-              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "capitalize" }}>{effectiveRole}</div>
+          {!sidebarCollapsed && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px 8px" }}>
+              <Avatar name={user?.name || user?.email || "?"} size={32} pulse={false} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.name}</div>
+                <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "capitalize" }}>{effectiveRole}</div>
+              </div>
             </div>
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
+          )}
+          <div style={{ display: "flex", gap: 4, flexDirection: sidebarCollapsed ? "column" : "row", alignItems: sidebarCollapsed ? "center" : "stretch" }}>
             {isAdmin && (
               <button
                 onClick={handleOpenAdminPanel}
-                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "5px 0", borderRadius: 6, fontSize: 11, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)" }}
+                title={sidebarCollapsed ? "Users" : undefined}
+                style={{ flex: sidebarCollapsed ? undefined : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "5px 0", borderRadius: 6, fontSize: 11, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)", width: sidebarCollapsed ? 36 : undefined, height: sidebarCollapsed ? 30 : undefined }}
               >
-                <Users className="h-3 w-3" /> Users
+                <Users className="h-3 w-3" />{!sidebarCollapsed && " Users"}
               </button>
             )}
             <button
               onClick={handleLogout}
-              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "5px 0", borderRadius: 6, fontSize: 11, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)" }}
+              title={sidebarCollapsed ? "Logout" : undefined}
+              style={{ flex: sidebarCollapsed ? undefined : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "5px 0", borderRadius: 6, fontSize: 11, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)", width: sidebarCollapsed ? 36 : undefined, height: sidebarCollapsed ? 30 : undefined }}
             >
-              <LogOut className="h-3 w-3" /> Logout
+              <LogOut className="h-3 w-3" />{!sidebarCollapsed && " Logout"}
             </button>
           </div>
         </div>
@@ -1856,7 +1875,6 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
 }) => {
   const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
   const [handRaised, setHandRaised] = useState(false);
-  const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const isHomework = !!assignment.due_at;
 
@@ -2076,72 +2094,6 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
       )}
 
       <div className="flex flex-1 overflow-hidden">
-
-        {/* ── Left panel: assignment description ──────────────────────── */}
-        <div
-          className="flex flex-col shrink-0 border-r transition-all duration-200"
-          style={{
-            width: leftOpen ? 220 : 32,
-            borderColor: "var(--border)",
-            background: "var(--bg-2)",
-            overflow: "hidden",
-          }}
-        >
-          {leftOpen ? (
-            <>
-              <div
-                className="flex items-center justify-between px-3 py-2.5 border-b shrink-0"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>
-                  Problem
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setLeftOpen(false)}
-                  className="rounded p-0.5 transition-colors"
-                  style={{ color: "var(--subtle)" }}
-                  title="Collapse"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-auto px-3 py-3 space-y-3">
-                <div>
-                  <div className="text-[11px] font-semibold mb-1" style={{ color: "var(--text)" }}>{assignment.title}</div>
-                  {assignment.description ? (
-                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-3)" }}>{assignment.description}</p>
-                  ) : (
-                    <p className="text-[10px]" style={{ color: "var(--border-2)" }}>No description provided.</p>
-                  )}
-                </div>
-                {assignment.due_at && (
-                  <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--subtle)" }}>Due date</div>
-                    <div className="text-[11px]" style={{ color: "var(--text-2)" }}>{formatDueDate(assignment.due_at)}</div>
-                    <div className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>{formatTimeRemaining(assignment.due_at)}</div>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setLeftOpen(true)}
-              className="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors"
-              style={{ color: "var(--subtle)" }}
-              title="Expand problem panel"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span
-                className="text-[10px] font-semibold uppercase tracking-widest"
-                style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", color: "var(--subtle)" }}
-              >
-                Problem
-              </span>
-            </button>
-          )}
-        </div>
 
         {/* Editor + terminal */}
         <div
