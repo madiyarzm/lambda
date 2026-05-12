@@ -2104,7 +2104,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   userName, userRole, userId, groupMembers, files, activeFileId,
   onSelectFile, onAddFile,
   submissions, selectedSubmission, onSelectSubmission, loading,
-  onSubmit, onBack,
+  onSubmit, onBack, onSaveFeedback,
   failedAttempts, hint, hintLoading, onGetHint, onDismissHint, xp,
 }) => {
   const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
