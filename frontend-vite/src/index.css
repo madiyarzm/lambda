@@ -115,6 +115,22 @@ code, pre, .font-mono {
   50% { opacity: 0; }
 }
 
+@keyframes auraSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes auraPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50%      { transform: scale(1.12); opacity: 0.55; }
+}
+
+@keyframes auraFlicker {
+  0%, 100% { opacity: 0.85; filter: hue-rotate(0deg) brightness(1.1); }
+  33%      { opacity: 0.6;  filter: hue-rotate(40deg) brightness(1.4); }
+  66%      { opacity: 0.9;  filter: hue-rotate(-30deg) brightness(0.9); }
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;

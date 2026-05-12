@@ -20,14 +20,26 @@ router = APIRouter()
 
 
 def _calc_xp(submissions: list) -> int:
-    """Chalk XP model: +200 per fully-accepted submission, +40 per passing test case."""
+    """
+    Chalk XP model:
+      - Accepted submission with no tests / failing tests: 5 XP
+      - Per-test passing count when available (result_json.passed: int): +40 XP per test
+      - Boolean test pass when only test_passed is present: +40 XP
+      - Failed / timeout / errored submissions: 0 XP
+    """
     xp = 0
     for sub in submissions:
-        if sub.status == "success":
-            xp += 200
-        result = sub.result_json or {}
-        passed = result.get("passed", 0)
-        xp += passed * 40
+        if sub.status != "success":
+            continue
+        result = sub.result_json if isinstance(sub.result_json, dict) else {}
+        passed = result.get("passed")
+        if isinstance(passed, int) and passed > 0:
+            xp += passed * 40
+            continue
+        if result.get("test_passed") is True:
+            xp += 40
+        else:
+            xp += 5
     return xp
 
 

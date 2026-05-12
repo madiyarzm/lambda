@@ -14,6 +14,7 @@ import {
   getHint,
   getMe,
   getMyActivity,
+  getMyCosmetics,
   getMyStats,
   getSandboxWsUrl,
   isLoggedIn,
@@ -25,6 +26,7 @@ import {
   listGroups,
   listSubmissions,
   logout,
+  updateMyCosmetics,
   updateUserRole,
 } from "./lib/api";
 import { Play, Square, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -376,6 +378,25 @@ export const MentorApp: React.FC = () => {
   const [xp, setXp] = useState<number | null>(null);
   const [activityDays, setActivityDays] = useState<{ date: string; count: number }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [cosmetics, setCosmeticsState] = useState<{ frame?: string; background?: string; aura?: string }>({});
+
+  const refreshStats = async () => {
+    try {
+      const stats = await getMyStats();
+      if (stats) setXp(stats.xp);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const saveCosmetics = async (next: { frame?: string; background?: string; aura?: string }) => {
+    setCosmeticsState(next);
+    try {
+      await updateMyCosmetics(next);
+    } catch {
+      /* swallow — keep local state */
+    }
+  };
 
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [hint, setHint] = useState<string | null>(null);
@@ -394,14 +415,16 @@ export const MentorApp: React.FC = () => {
         try {
           const me = await getMe();
           setUser(me);
-          const [grps, stats, activity] = await Promise.all([
+          const [grps, stats, activity, cos] = await Promise.all([
             listGroups(),
             getMyStats().catch(() => null),
             getMyActivity().catch(() => null),
+            getMyCosmetics().catch(() => null),
           ]);
           setGroups(grps || []);
           if (stats) setXp(stats.xp);
           if (activity) setActivityDays(activity.days);
+          if (cos && typeof cos === "object") setCosmeticsState(cos as any);
           if (grps && grps.length > 0) {
             const clsResults = await Promise.all(grps.map((g: any) => listClassrooms(g.id).catch(() => [])));
             const clsMap: Record<string, any[]> = {};
@@ -592,13 +615,18 @@ export const MentorApp: React.FC = () => {
       setSubmissions(prev => [sub, ...prev]);
       if (sub.status === "success") {
         setShowConfetti(true);
-        setXp(prev => (prev ?? 0) + 10);
+        // Match backend: per-test count if available, else +40 for test_passed=true, else +5 base.
+        const r = sub.result_json || {};
+        const passed = typeof r.passed === "number" ? r.passed : 0;
+        const earned = passed > 0 ? passed * 40 : r.test_passed === true ? 40 : 5;
+        setXp(prev => (prev ?? 0) + earned);
         setFailedAttempts(0);
         setHint(null);
       } else {
-        setXp(prev => (prev ?? 0) + 2);
         setFailedAttempts(prev => prev + 1);
       }
+      // Reconcile with server truth (handles edge cases where optimistic guess drifts).
+      void refreshStats();
     } catch (e: any) { setError(e.message || "Failed to submit."); } finally { setLoading(false); }
   };
 
@@ -908,6 +936,8 @@ export const MentorApp: React.FC = () => {
               onJoinGroup={handleJoinGroup}
               groupClassrooms={groupClassrooms}
               onOpenClassroom={openClassroom}
+              cosmetics={cosmetics}
+              onSaveCosmetics={saveCosmetics}
             />
           )}
           {view === "classroom" && currentClassroom && (
@@ -934,6 +964,8 @@ export const MentorApp: React.FC = () => {
               onSelectSubmission={setSelectedSubmission}
               onOpenAssignment={openAssignment}
               onBack={() => setView("classroom")}
+              userRole={effectiveRole}
+              onSaveFeedback={handleSaveFeedback}
             />
           )}
           {view === "assignment" && currentAssignment && (
@@ -1048,7 +1080,7 @@ export const MentorApp: React.FC = () => {
 // ─── XP / cosmetics constants ────────────────────────────────────────────────
 
 const XP_FRAMES = [
-  { id: "plain",  name: "Default", cost: 0,    color: "var(--border)",        glow: "none", unlocked: true },
+  { id: "plain",  name: "Default", cost: 0,    color: "var(--border)",        glow: "none" },
   { id: "bronze", name: "Bronze",  cost: 100,  color: "#cd7f32",              glow: "0 0 12px #cd7f3266" },
   { id: "silver", name: "Silver",  cost: 250,  color: "#c0c0c0",              glow: "0 0 12px #c0c0c066" },
   { id: "gold",   name: "Gold",    cost: 500,  color: "#ffd700",              glow: "0 0 16px #ffd70066" },
@@ -1056,11 +1088,22 @@ const XP_FRAMES = [
 ];
 
 const XP_BGTYPES = [
-  { id: "default", name: "Default", cost: 0,   bg: "linear-gradient(135deg, oklch(0.52 0.26 265) 0%, oklch(0.48 0.27 265) 100%)", unlocked: true },
-  { id: "cosmic",  name: "Cosmic",  cost: 200, bg: "linear-gradient(135deg, #0d0221 0%, #1a0533 50%, #0d1b2a 100%)" },
-  { id: "matrix",  name: "Matrix",  cost: 300, bg: "linear-gradient(135deg, #001100 0%, #003300 50%, #001a00 100%)" },
-  { id: "sunset",  name: "Sunset",  cost: 400, bg: "linear-gradient(135deg, #ff6b35 0%, #f7c948 50%, #e8506a 100%)" },
-  { id: "ocean",   name: "Ocean",   cost: 500, bg: "linear-gradient(135deg, #0575e6 0%, #021b79 100%)" },
+  { id: "default", name: "Default", cost: 0,    bg: "linear-gradient(135deg, oklch(0.52 0.26 265) 0%, oklch(0.48 0.27 265) 100%)" },
+  { id: "cosmic",  name: "Cosmic",  cost: 200,  bg: "linear-gradient(135deg, #0d0221 0%, #1a0533 50%, #0d1b2a 100%)" },
+  { id: "matrix",  name: "Matrix",  cost: 300,  bg: "linear-gradient(135deg, #001100 0%, #003300 50%, #001a00 100%)" },
+  { id: "sunset",  name: "Sunset",  cost: 400,  bg: "linear-gradient(135deg, #ff6b35 0%, #f7c948 50%, #e8506a 100%)" },
+  { id: "ocean",   name: "Ocean",   cost: 500,  bg: "linear-gradient(135deg, #0575e6 0%, #021b79 100%)" },
+];
+
+// Animated auras — apply behind the avatar. Cost rises with visual complexity.
+const XP_AURAS: { id: string; name: string; cost: number; preview: React.CSSProperties; anim?: string }[] = [
+  { id: "none",      name: "None",      cost: 0,    preview: { background: "transparent" } },
+  { id: "pulse",     name: "Pulse",     cost: 75,   preview: { background: "radial-gradient(circle, oklch(0.60 0.22 264 / 0.6) 0%, transparent 70%)" }, anim: "auraPulse 2s ease-in-out infinite" },
+  { id: "sparkle",   name: "Sparkle",   cost: 200,  preview: { background: "conic-gradient(from 0deg, #fde68a, #fbbf24, #fde68a)" }, anim: "auraSpin 4s linear infinite" },
+  { id: "orbit",     name: "Orbit",     cost: 400,  preview: { background: "transparent", border: "2px dashed oklch(0.65 0.20 308 / 0.7)" }, anim: "auraSpin 6s linear infinite" },
+  { id: "lightning", name: "Lightning", cost: 800,  preview: { background: "linear-gradient(45deg, #38bdf8, #818cf8, #c084fc)" }, anim: "auraFlicker 0.8s steps(3, end) infinite" },
+  { id: "cosmic",    name: "Cosmic",    cost: 1500, preview: { background: "conic-gradient(from 90deg, #f0abfc, #818cf8, #34d399, #fbbf24, #f0abfc)" }, anim: "auraSpin 8s linear infinite, auraPulse 3s ease-in-out infinite" },
+  { id: "galaxy",    name: "Galaxy",    cost: 3000, preview: { background: "radial-gradient(circle at 30% 30%, #f472b6 0%, transparent 30%), radial-gradient(circle at 70% 70%, #60a5fa 0%, transparent 35%), radial-gradient(circle at 50% 50%, #1e1b4b 0%, #000 80%)" }, anim: "auraSpin 12s linear infinite, auraPulse 4s ease-in-out infinite" },
 ];
 
 const ACHIEVEMENTS: { id: string; Icon: React.ComponentType<{ size?: number; color?: string }>; name: string; desc: string; unlocked: boolean; rarity: string }[] = [
@@ -1090,9 +1133,11 @@ interface DashboardViewProps {
   onCreateGroup: () => void;
   onJoinGroup: () => void;
   onOpenClassroom: (c: any) => void;
+  cosmetics: { frame?: string; background?: string; aura?: string };
+  onSaveCosmetics: (next: { frame?: string; background?: string; aura?: string }) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, cosmetics, onSaveCosmetics }) => {
   // derive flat classroom list for teacher
   const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code })));
   // student: assignments across all classrooms
@@ -1208,11 +1253,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
   }
 
   // ── Student Dashboard ──────────────────────────────────────────────────────
-  const [selectedFrame, setSelectedFrame] = useState("plain");
-  const [selectedBg, setSelectedBg] = useState("default");
+  const selectedFrame = cosmetics.frame || "plain";
+  const selectedBg = cosmetics.background || "default";
+  const selectedAura = cosmetics.aura || "none";
   const [shopOpen, setShopOpen] = useState(false);
   const frame = XP_FRAMES.find(f => f.id === selectedFrame) || XP_FRAMES[0];
   const bg = XP_BGTYPES.find(b => b.id === selectedBg) || XP_BGTYPES[0];
+  const aura = XP_AURAS.find(a => a.id === selectedAura) || XP_AURAS[0];
+  const ownedXp = xp ?? 0;
+  const canAfford = (cost: number) => ownedXp >= cost;
   const lvlInfo = xp !== null ? xpLevel(xp) : null;
   const xpPct = lvlInfo ? (lvlInfo.next === lvlInfo.prev ? 100 : Math.round(((xp! - lvlInfo.prev) / (lvlInfo.next - lvlInfo.prev)) * 100)) : 0;
 
@@ -1246,12 +1295,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
         <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.06)", animation: "orbFloat 6s ease-in-out infinite" }} />
         <div style={{ position: "absolute", bottom: -60, left: "30%", width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.04)", animation: "orbFloat 8s ease-in-out infinite 1s" }} />
         <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 20 }}>
-          {/* Avatar with XP frame */}
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", border: `3px solid ${frame.color}`, boxShadow: frame.glow !== "none" ? frame.glow : undefined, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.15)", fontSize: 24, fontWeight: 700, color: "#fff" }}>
+          {/* Avatar with XP frame + animated aura */}
+          <div style={{ position: "relative", flexShrink: 0, width: 96, height: 96, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {aura.id !== "none" && (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  filter: "blur(2px)",
+                  opacity: 0.85,
+                  animation: aura.anim,
+                  ...aura.preview,
+                }}
+              />
+            )}
+            <div style={{ position: "relative", width: 72, height: 72, borderRadius: "50%", border: `3px solid ${frame.color}`, boxShadow: frame.glow !== "none" ? frame.glow : undefined, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.15)", fontSize: 24, fontWeight: 700, color: "#fff" }}>
               {user?.name?.[0]?.toUpperCase() || "?"}
             </div>
-            <div style={{ position: "absolute", bottom: 2, right: 2, width: 12, height: 12, borderRadius: "50%", background: "var(--mint)", border: "2px solid var(--bg)", animation: "pulseDot 2s ease-in-out infinite" }} />
+            <div style={{ position: "absolute", bottom: 8, right: 8, width: 12, height: 12, borderRadius: "50%", background: "var(--mint)", border: "2px solid var(--bg)", animation: "pulseDot 2s ease-in-out infinite" }} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{user?.name || "Student"}</div>
@@ -1276,29 +1339,71 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
       {/* Cosmetics shop */}
       {shopOpen && (
         <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "20px 32px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Avatar Frame</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {XP_FRAMES.map(f => (
-                  <button key={f.id} onClick={() => setSelectedFrame(f.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 10px", borderRadius: 8, border: `2px solid ${selectedFrame === f.id ? f.color : "var(--border)"}`, background: selectedFrame === f.id ? "var(--bg-2)" : "transparent", cursor: "pointer" }}>
-                    <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${f.color}`, boxShadow: f.glow !== "none" ? f.glow : undefined }} />
-                    <span style={{ fontSize: 10, color: "var(--text-3)" }}>{f.name}</span>
-                    {f.cost > 0 && <span style={{ fontSize: 9, color: "var(--amber)" }}>{f.cost} XP</span>}
-                  </button>
-                ))}
+                {XP_FRAMES.map(f => {
+                  const locked = !canAfford(f.cost);
+                  const isSelected = selectedFrame === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      disabled={locked}
+                      onClick={() => onSaveCosmetics({ ...cosmetics, frame: f.id })}
+                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 10px", borderRadius: 8, border: `2px solid ${isSelected ? f.color : "var(--border)"}`, background: isSelected ? "var(--bg-2)" : "transparent", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.4 : 1 }}
+                      title={locked ? `Locked — need ${f.cost} XP` : f.name}
+                    >
+                      <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${f.color}`, boxShadow: f.glow !== "none" ? f.glow : undefined }} />
+                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{f.name}</span>
+                      {f.cost > 0 && <span style={{ fontSize: 9, color: locked ? "var(--text-3)" : "var(--amber)" }}>{f.cost} XP</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Background</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {XP_BGTYPES.map(b => (
-                  <button key={b.id} onClick={() => setSelectedBg(b.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: `2px solid ${selectedBg === b.id ? "var(--indigo)" : "var(--border)"}`, background: "transparent", cursor: "pointer" }}>
-                    <div style={{ width: 32, height: 20, borderRadius: 4, background: b.bg }} />
-                    <span style={{ fontSize: 10, color: "var(--text-3)" }}>{b.name}</span>
-                    {b.cost > 0 && <span style={{ fontSize: 9, color: "var(--amber)" }}>{b.cost} XP</span>}
-                  </button>
-                ))}
+                {XP_BGTYPES.map(b => {
+                  const locked = !canAfford(b.cost);
+                  const isSelected = selectedBg === b.id;
+                  return (
+                    <button
+                      key={b.id}
+                      disabled={locked}
+                      onClick={() => onSaveCosmetics({ ...cosmetics, background: b.id })}
+                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: `2px solid ${isSelected ? "var(--indigo)" : "var(--border)"}`, background: "transparent", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.4 : 1 }}
+                      title={locked ? `Locked — need ${b.cost} XP` : b.name}
+                    >
+                      <div style={{ width: 32, height: 20, borderRadius: 4, background: b.bg }} />
+                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{b.name}</span>
+                      {b.cost > 0 && <span style={{ fontSize: 9, color: locked ? "var(--text-3)" : "var(--amber)" }}>{b.cost} XP</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Avatar Aura</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {XP_AURAS.map(a => {
+                  const locked = !canAfford(a.cost);
+                  const isSelected = selectedAura === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      disabled={locked}
+                      onClick={() => onSaveCosmetics({ ...cosmetics, aura: a.id })}
+                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: `2px solid ${isSelected ? "oklch(0.65 0.20 308)" : "var(--border)"}`, background: "transparent", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.4 : 1, minWidth: 64 }}
+                      title={locked ? `Locked — need ${a.cost} XP` : a.name}
+                    >
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", animation: a.anim, ...a.preview }} />
+                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{a.name}</span>
+                      {a.cost > 0 && <span style={{ fontSize: 9, color: locked ? "var(--text-3)" : "var(--amber)" }}>{a.cost} XP</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1588,13 +1693,22 @@ interface SubmissionsViewProps {
   onSelectSubmission: (s: any | null) => void;
   onOpenAssignment: (asg: any) => void;
   onBack: () => void;
+  userRole: string;
+  onSaveFeedback: (submissionId: string, feedback: string) => Promise<void>;
 }
 
 const SubmissionsView: React.FC<SubmissionsViewProps> = ({
-  classroom, assignments, submissions, selectedSubmission, onSelectSubmission, onOpenAssignment, onBack,
+  classroom, assignments, submissions, selectedSubmission, onSelectSubmission, onOpenAssignment, onBack, userRole, onSaveFeedback,
 }) => {
   const [filterAssignment, setFilterAssignment] = useState<string>("all");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [feedbackDraft, setFeedbackDraft] = useState<string>("");
+  const [savingFeedback, setSavingFeedback] = useState(false);
+
+  // Reset feedback draft whenever the selection changes.
+  useEffect(() => {
+    setFeedbackDraft(selectedSubmission?.feedback || "");
+  }, [selectedSubmission?.id]);
 
   const statusStyle: Record<string, { bg: string; color: string; dot: string }> = {
     success:  { bg: "var(--mint-10)",   color: "oklch(0.40 0.14 162)", dot: "var(--mint)" },
@@ -1784,49 +1898,141 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
           </div>
         )}
 
-        {/* Col 3: submission code detail */}
-        {selectedSubmission && (
-          <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-2)" }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{assignments.find(a => a.id === selectedSubmission.assignment_id)?.title || "Submission"}</div>
-                <div style={{ fontSize: 11, color: "var(--text-3)" }}>{selectedSubmission.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : ""}</div>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {selectedSubmission.assignment_id && (
+        {/* Col 3: submission detail */}
+        {selectedSubmission && (() => {
+          const result = (selectedSubmission.result_json || {}) as Record<string, any>;
+          const stdout: string = result.stdout || "";
+          const stderr: string = result.stderr || "";
+          const returncode = result.returncode;
+          const timedOut = result.timed_out === true;
+          const testPassed = selectedSubmission.test_passed ?? result.test_passed ?? null;
+          const testOutput: string = result.test_output || "";
+          const errorSummary: string | null = selectedSubmission.error_summary || null;
+          const ss = statusStyle[selectedSubmission.status] || statusStyle.error;
+          const handleSave = async () => {
+            if (!selectedSubmission?.id) return;
+            setSavingFeedback(true);
+            try {
+              await onSaveFeedback(selectedSubmission.id, feedbackDraft);
+            } finally {
+              setSavingFeedback(false);
+            }
+          };
+          return (
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-2)" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{assignments.find(a => a.id === selectedSubmission.assignment_id)?.title || "Submission"}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>{selectedSubmission.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : ""}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {selectedSubmission.assignment_id && (
+                    <button
+                      onClick={() => { const a = assignments.find(x => x.id === selectedSubmission.assignment_id); if (a) onOpenAssignment(a); }}
+                      style={{ padding: "5px 12px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                    >Open in Editor</button>
+                  )}
                   <button
-                    onClick={() => { const a = assignments.find(x => x.id === selectedSubmission.assignment_id); if (a) onOpenAssignment(a); }}
-                    style={{ padding: "5px 12px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
-                  >Open in Editor</button>
+                    onClick={() => onSelectSubmission(null)}
+                    style={{ padding: "5px 10px", background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 11, cursor: "pointer" }}
+                  >✕</button>
+                </div>
+              </div>
+
+              {/* Runtime info row */}
+              <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "var(--text-3)" }}>
+                <span style={{ fontWeight: 700, background: ss.bg, color: ss.color, borderRadius: 10, padding: "2px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: ss.dot, display: "inline-block" }} />
+                  {selectedSubmission.status_display || selectedSubmission.status}
+                </span>
+                {typeof returncode === "number" && (
+                  <span><strong style={{ color: "var(--text-2)" }}>exit:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{returncode}</code></span>
                 )}
-                <button
-                  onClick={() => onSelectSubmission(null)}
-                  style={{ padding: "5px 10px", background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 11, cursor: "pointer" }}
-                >✕</button>
+                {timedOut && <span style={{ color: "var(--amber)" }}>⏱ timed out</span>}
+                {testPassed === true && <span style={{ color: "var(--mint)" }}>✓ tests passed</span>}
+                {testPassed === false && <span style={{ color: "var(--rose)" }}>✗ tests failed</span>}
+                {testPassed === null && <span>no tests configured</span>}
+                <span><strong style={{ color: "var(--text-2)" }}>id:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{String(selectedSubmission.id).slice(0, 8)}</code></span>
+              </div>
+
+              <div style={{ flex: 1, padding: "16px 20px" }}>
+                {/* Code */}
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Code</div>
+                <pre style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px 16px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text)", overflow: "auto", lineHeight: 1.7, maxHeight: 360, whiteSpace: "pre" }}>
+                  {selectedSubmission.code || "(no code)"}
+                </pre>
+
+                {/* stdout */}
+                {stdout && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stdout</div>
+                    <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 180, whiteSpace: "pre-wrap" }}>
+                      {stdout}
+                    </pre>
+                  </div>
+                )}
+
+                {/* stderr / error details */}
+                {stderr && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stderr / error</div>
+                    <pre style={{ background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--rose)", overflow: "auto", lineHeight: 1.6, maxHeight: 240, whiteSpace: "pre-wrap" }}>
+                      {stderr}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Error summary (when no stderr but status is error) */}
+                {!stderr && errorSummary && (
+                  <div style={{ marginTop: 14, background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, color: "var(--rose)" }}>
+                    {errorSummary}
+                  </div>
+                )}
+
+                {/* Auto-grader output */}
+                {testOutput && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Auto-grader output</div>
+                    <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: testPassed ? "var(--mint)" : "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 200, whiteSpace: "pre-wrap" }}>
+                      {testOutput}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Feedback */}
+                <div style={{ marginTop: 18, background: "var(--amber-10)", border: "1px solid var(--amber-muted)", borderRadius: "var(--r)", padding: "12px 14px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                    {userRole === "teacher" ? "Mentor feedback" : "Feedback from your mentor"}
+                  </div>
+                  {userRole === "teacher" ? (
+                    <>
+                      <textarea
+                        value={feedbackDraft}
+                        onChange={e => setFeedbackDraft(e.target.value)}
+                        placeholder="Leave feedback for this submission…"
+                        rows={4}
+                        style={{ width: "100%", boxSizing: "border-box", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 10px", fontSize: 12, color: "var(--text)", fontFamily: "inherit", resize: "vertical" }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                        <button
+                          onClick={handleSave}
+                          disabled={savingFeedback || feedbackDraft === (selectedSubmission.feedback || "")}
+                          style={{ padding: "5px 14px", background: "var(--amber)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: savingFeedback ? "wait" : "pointer", opacity: (savingFeedback || feedbackDraft === (selectedSubmission.feedback || "")) ? 0.55 : 1 }}
+                        >
+                          {savingFeedback ? "Saving…" : "Save feedback"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
+                      {selectedSubmission.feedback || <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>No feedback yet.</span>}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-            <div style={{ flex: 1, padding: "16px 20px" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Code</div>
-              <pre style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px 16px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text)", overflow: "auto", lineHeight: 1.7, maxHeight: 360 }}>
-                {selectedSubmission.code || "(no code)"}
-              </pre>
-              {selectedSubmission.output && (
-                <div style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Output</div>
-                  <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: selectedSubmission.status === "success" ? "var(--mint)" : "var(--rose)", overflow: "auto", lineHeight: 1.6, maxHeight: 180 }}>
-                    {selectedSubmission.output}
-                  </pre>
-                </div>
-              )}
-              {selectedSubmission.feedback && (
-                <div style={{ marginTop: 14, background: "var(--amber-10)", border: "1px solid var(--amber-muted)", borderRadius: "var(--r)", padding: "12px 14px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>Feedback</div>
-                  <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6, margin: 0 }}>{selectedSubmission.feedback}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
