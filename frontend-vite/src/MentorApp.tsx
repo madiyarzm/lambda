@@ -1683,6 +1683,166 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
   );
 };
 
+// ─── SubmissionDetailPanel ──────────────────────────────────────────────────
+
+interface SubmissionDetailPanelProps {
+  submission: any;
+  assignmentTitle?: string;
+  userRole: string;
+  onClose: () => void;
+  onOpenInEditor?: () => void;
+  onSaveFeedback: (submissionId: string, feedback: string) => Promise<void>;
+}
+
+const SUBMISSION_STATUS_STYLE: Record<string, { bg: string; color: string; dot: string }> = {
+  success: { bg: "var(--mint-10)",  color: "oklch(0.40 0.14 162)", dot: "var(--mint)" },
+  error:   { bg: "var(--rose-10)",  color: "var(--rose)",          dot: "var(--rose)" },
+  timeout: { bg: "var(--amber-10)", color: "oklch(0.52 0.14 75)",  dot: "var(--amber)" },
+};
+
+const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
+  submission, assignmentTitle, userRole, onClose, onOpenInEditor, onSaveFeedback,
+}) => {
+  const [feedbackDraft, setFeedbackDraft] = useState<string>(submission?.feedback || "");
+  const [savingFeedback, setSavingFeedback] = useState(false);
+
+  useEffect(() => {
+    setFeedbackDraft(submission?.feedback || "");
+  }, [submission?.id]);
+
+  const result = (submission.result_json || {}) as Record<string, any>;
+  const stdout: string = result.stdout || "";
+  const stderr: string = result.stderr || "";
+  const returncode = result.returncode;
+  const timedOut = result.timed_out === true;
+  const testPassed = submission.test_passed ?? result.test_passed ?? null;
+  const testOutput: string = result.test_output || "";
+  const errorSummary: string | null = submission.error_summary || null;
+  const ss = SUBMISSION_STATUS_STYLE[submission.status] || SUBMISSION_STATUS_STYLE.error;
+
+  const handleSave = async () => {
+    if (!submission?.id) return;
+    setSavingFeedback(true);
+    try {
+      await onSaveFeedback(submission.id, feedbackDraft);
+    } finally {
+      setSavingFeedback(false);
+    }
+  };
+
+  return (
+    <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", background: "var(--bg)", height: "100%" }}>
+      <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-2)" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{assignmentTitle || "Submission"}</div>
+          <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+            {submission.submitter_name ? `${submission.submitter_name} · ` : ""}
+            {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : ""}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {onOpenInEditor && (
+            <button
+              onClick={onOpenInEditor}
+              style={{ padding: "5px 12px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+            >Open in Editor</button>
+          )}
+          <button
+            onClick={onClose}
+            style={{ padding: "5px 10px", background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 11, cursor: "pointer" }}
+          >✕</button>
+        </div>
+      </div>
+
+      {/* Runtime info */}
+      <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "var(--text-3)" }}>
+        <span style={{ fontWeight: 700, background: ss.bg, color: ss.color, borderRadius: 10, padding: "2px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: ss.dot, display: "inline-block" }} />
+          {submission.status_display || submission.status}
+        </span>
+        {typeof returncode === "number" && (
+          <span><strong style={{ color: "var(--text-2)" }}>exit:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{returncode}</code></span>
+        )}
+        {timedOut && <span style={{ color: "var(--amber)" }}>⏱ timed out</span>}
+        {testPassed === true && <span style={{ color: "var(--mint)" }}>✓ tests passed</span>}
+        {testPassed === false && <span style={{ color: "var(--rose)" }}>✗ tests failed</span>}
+        {testPassed === null && <span>no tests configured</span>}
+        <span><strong style={{ color: "var(--text-2)" }}>id:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{String(submission.id).slice(0, 8)}</code></span>
+      </div>
+
+      <div style={{ flex: 1, padding: "16px 20px" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Code</div>
+        <pre style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px 16px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text)", overflow: "auto", lineHeight: 1.7, maxHeight: 360, whiteSpace: "pre" }}>
+          {submission.code || "(no code)"}
+        </pre>
+
+        {stdout && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stdout</div>
+            <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 180, whiteSpace: "pre-wrap" }}>
+              {stdout}
+            </pre>
+          </div>
+        )}
+
+        {stderr && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stderr / error</div>
+            <pre style={{ background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--rose)", overflow: "auto", lineHeight: 1.6, maxHeight: 240, whiteSpace: "pre-wrap" }}>
+              {stderr}
+            </pre>
+          </div>
+        )}
+
+        {!stderr && errorSummary && (
+          <div style={{ marginTop: 14, background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, color: "var(--rose)" }}>
+            {errorSummary}
+          </div>
+        )}
+
+        {testOutput && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Auto-grader output</div>
+            <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: testPassed ? "var(--mint)" : "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 200, whiteSpace: "pre-wrap" }}>
+              {testOutput}
+            </pre>
+          </div>
+        )}
+
+        <div style={{ marginTop: 18, background: "var(--amber-10)", border: "1px solid var(--amber-muted)", borderRadius: "var(--r)", padding: "12px 14px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            {userRole === "teacher" ? "Mentor feedback" : "Feedback from your mentor"}
+          </div>
+          {userRole === "teacher" ? (
+            <>
+              <textarea
+                value={feedbackDraft}
+                onChange={e => setFeedbackDraft(e.target.value)}
+                placeholder="Leave feedback for this submission…"
+                rows={4}
+                style={{ width: "100%", boxSizing: "border-box", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 10px", fontSize: 12, color: "var(--text)", fontFamily: "inherit", resize: "vertical" }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <button
+                  onClick={handleSave}
+                  disabled={savingFeedback || feedbackDraft === (submission.feedback || "")}
+                  style={{ padding: "5px 14px", background: "var(--amber)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: savingFeedback ? "wait" : "pointer", opacity: (savingFeedback || feedbackDraft === (submission.feedback || "")) ? 0.55 : 1 }}
+                >
+                  {savingFeedback ? "Saving…" : "Save feedback"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
+              {submission.feedback || <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>No feedback yet.</span>}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── SubmissionsView ─────────────────────────────────────────────────────────
 
 interface SubmissionsViewProps {
@@ -1702,19 +1862,8 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
 }) => {
   const [filterAssignment, setFilterAssignment] = useState<string>("all");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [feedbackDraft, setFeedbackDraft] = useState<string>("");
-  const [savingFeedback, setSavingFeedback] = useState(false);
 
-  // Reset feedback draft whenever the selection changes.
-  useEffect(() => {
-    setFeedbackDraft(selectedSubmission?.feedback || "");
-  }, [selectedSubmission?.id]);
-
-  const statusStyle: Record<string, { bg: string; color: string; dot: string }> = {
-    success:  { bg: "var(--mint-10)",   color: "oklch(0.40 0.14 162)", dot: "var(--mint)" },
-    error:    { bg: "var(--rose-10)",   color: "var(--rose)",          dot: "var(--rose)" },
-    timeout:  { bg: "var(--amber-10)",  color: "oklch(0.52 0.14 75)",  dot: "var(--amber)" },
-  };
+  const statusStyle = SUBMISSION_STATUS_STYLE;
 
   const filtered = filterAssignment === "all" ? submissions : submissions.filter(s => s.assignment_id === filterAssignment);
 
@@ -1899,140 +2048,19 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         )}
 
         {/* Col 3: submission detail */}
-        {selectedSubmission && (() => {
-          const result = (selectedSubmission.result_json || {}) as Record<string, any>;
-          const stdout: string = result.stdout || "";
-          const stderr: string = result.stderr || "";
-          const returncode = result.returncode;
-          const timedOut = result.timed_out === true;
-          const testPassed = selectedSubmission.test_passed ?? result.test_passed ?? null;
-          const testOutput: string = result.test_output || "";
-          const errorSummary: string | null = selectedSubmission.error_summary || null;
-          const ss = statusStyle[selectedSubmission.status] || statusStyle.error;
-          const handleSave = async () => {
-            if (!selectedSubmission?.id) return;
-            setSavingFeedback(true);
-            try {
-              await onSaveFeedback(selectedSubmission.id, feedbackDraft);
-            } finally {
-              setSavingFeedback(false);
-            }
-          };
-          return (
-            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
-              <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-2)" }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{assignments.find(a => a.id === selectedSubmission.assignment_id)?.title || "Submission"}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>{selectedSubmission.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : ""}</div>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {selectedSubmission.assignment_id && (
-                    <button
-                      onClick={() => { const a = assignments.find(x => x.id === selectedSubmission.assignment_id); if (a) onOpenAssignment(a); }}
-                      style={{ padding: "5px 12px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
-                    >Open in Editor</button>
-                  )}
-                  <button
-                    onClick={() => onSelectSubmission(null)}
-                    style={{ padding: "5px 10px", background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 11, cursor: "pointer" }}
-                  >✕</button>
-                </div>
-              </div>
-
-              {/* Runtime info row */}
-              <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, color: "var(--text-3)" }}>
-                <span style={{ fontWeight: 700, background: ss.bg, color: ss.color, borderRadius: 10, padding: "2px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: ss.dot, display: "inline-block" }} />
-                  {selectedSubmission.status_display || selectedSubmission.status}
-                </span>
-                {typeof returncode === "number" && (
-                  <span><strong style={{ color: "var(--text-2)" }}>exit:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{returncode}</code></span>
-                )}
-                {timedOut && <span style={{ color: "var(--amber)" }}>⏱ timed out</span>}
-                {testPassed === true && <span style={{ color: "var(--mint)" }}>✓ tests passed</span>}
-                {testPassed === false && <span style={{ color: "var(--rose)" }}>✗ tests failed</span>}
-                {testPassed === null && <span>no tests configured</span>}
-                <span><strong style={{ color: "var(--text-2)" }}>id:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{String(selectedSubmission.id).slice(0, 8)}</code></span>
-              </div>
-
-              <div style={{ flex: 1, padding: "16px 20px" }}>
-                {/* Code */}
-                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Code</div>
-                <pre style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px 16px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text)", overflow: "auto", lineHeight: 1.7, maxHeight: 360, whiteSpace: "pre" }}>
-                  {selectedSubmission.code || "(no code)"}
-                </pre>
-
-                {/* stdout */}
-                {stdout && (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stdout</div>
-                    <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 180, whiteSpace: "pre-wrap" }}>
-                      {stdout}
-                    </pre>
-                  </div>
-                )}
-
-                {/* stderr / error details */}
-                {stderr && (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stderr / error</div>
-                    <pre style={{ background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--rose)", overflow: "auto", lineHeight: 1.6, maxHeight: 240, whiteSpace: "pre-wrap" }}>
-                      {stderr}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Error summary (when no stderr but status is error) */}
-                {!stderr && errorSummary && (
-                  <div style={{ marginTop: 14, background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, color: "var(--rose)" }}>
-                    {errorSummary}
-                  </div>
-                )}
-
-                {/* Auto-grader output */}
-                {testOutput && (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Auto-grader output</div>
-                    <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: testPassed ? "var(--mint)" : "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 200, whiteSpace: "pre-wrap" }}>
-                      {testOutput}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Feedback */}
-                <div style={{ marginTop: 18, background: "var(--amber-10)", border: "1px solid var(--amber-muted)", borderRadius: "var(--r)", padding: "12px 14px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-                    {userRole === "teacher" ? "Mentor feedback" : "Feedback from your mentor"}
-                  </div>
-                  {userRole === "teacher" ? (
-                    <>
-                      <textarea
-                        value={feedbackDraft}
-                        onChange={e => setFeedbackDraft(e.target.value)}
-                        placeholder="Leave feedback for this submission…"
-                        rows={4}
-                        style={{ width: "100%", boxSizing: "border-box", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 10px", fontSize: 12, color: "var(--text)", fontFamily: "inherit", resize: "vertical" }}
-                      />
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                        <button
-                          onClick={handleSave}
-                          disabled={savingFeedback || feedbackDraft === (selectedSubmission.feedback || "")}
-                          style={{ padding: "5px 14px", background: "var(--amber)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: savingFeedback ? "wait" : "pointer", opacity: (savingFeedback || feedbackDraft === (selectedSubmission.feedback || "")) ? 0.55 : 1 }}
-                        >
-                          {savingFeedback ? "Saving…" : "Save feedback"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
-                      {selectedSubmission.feedback || <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>No feedback yet.</span>}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {selectedSubmission && (
+          <SubmissionDetailPanel
+            submission={selectedSubmission}
+            assignmentTitle={assignments.find(a => a.id === selectedSubmission.assignment_id)?.title}
+            userRole={userRole}
+            onClose={() => onSelectSubmission(null)}
+            onOpenInEditor={() => {
+              const a = assignments.find(x => x.id === selectedSubmission.assignment_id);
+              if (a) onOpenAssignment(a);
+            }}
+            onSaveFeedback={onSaveFeedback}
+          />
+        )}
       </div>
     </div>
   );
@@ -2685,6 +2713,34 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
         </div>
 
       </div>
+
+      {/* Submission detail modal */}
+      {selectedSubmission && (
+        <div
+          onClick={() => onSelectSubmission(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: "min(880px, 100%)", maxHeight: "90vh", display: "flex", flexDirection: "column",
+              background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", overflow: "hidden",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
+            }}
+          >
+            <SubmissionDetailPanel
+              submission={selectedSubmission}
+              assignmentTitle={assignment.title}
+              userRole={userRole || "student"}
+              onClose={() => onSelectSubmission(null)}
+              onSaveFeedback={onSaveFeedback}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
