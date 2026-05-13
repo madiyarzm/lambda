@@ -7,9 +7,10 @@ and human-readable status for the UI.
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
+from app.core.limiter import limiter
 from app.dependencies import CurrentUser, DBSession
 from app.models.submission import Submission
 from app.models.user import User
@@ -48,7 +49,9 @@ def _submission_to_read(submission: Submission, submitter_name: str = "", submit
 
 
 @router.post("/", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 def create_submission_endpoint(
+    request: Request,
     payload: SubmissionCreate,
     current_user: CurrentUser,
     db: DBSession,

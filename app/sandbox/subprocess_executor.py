@@ -22,6 +22,16 @@ from app.sandbox.limits import DEFAULT_TIMEOUT_SECONDS, MAX_OUTPUT_BYTES
 
 logger = logging.getLogger(__name__)
 
+# Strict allowlist of env vars passed into the child process. Restricted
+# builtins are bypassable, so we minimise what a successful escape could
+# read. Notably this strips SECRET_KEY, DATABASE_URL, GOOGLE_CLIENT_SECRET,
+# ANTHROPIC_API_KEY from the child's environment.
+_SAFE_ENV_KEYS = ("PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TZ")
+
+
+def sandbox_env() -> dict[str, str]:
+    return {k: os.environ[k] for k in _SAFE_ENV_KEYS if k in os.environ}
+
 # Runner script: writes to temp dir and is invoked as python runner.py <user_code_path>.
 # Restricts builtins so user code cannot open files, spawn processes, or import os/socket etc.
 # We allow common teaching modules: math, random, json, datetime, re, collections, etc.
@@ -112,7 +122,7 @@ class SubprocessSandboxExecutor(SandboxExecutor):
                     capture_output=True,
                     timeout=timeout,
                     text=True,
-                    env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
+                    env=sandbox_env(),
                 )
             except subprocess.TimeoutExpired:
                 logger.warning("Sandbox run timed out after %s seconds", timeout)

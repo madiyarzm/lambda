@@ -226,3 +226,96 @@ cd frontend-vite && npm run dev  # port 5173, proxies /api to 8000
 - `cursor/cursor_rules.md` — Cursor IDE rules, not used by Claude Code
 - `.mcp.json` — Supabase MCP server config (project root)
 - `.claude/settings.local.json` — Claude Code permissions for this project
+
+---
+
+## Session log — 2026-05-11/12
+
+### Gamification rework (implemented this session)
+
+**Backend XP formula** (`app/api/v1/users.py:_calc_xp`) — rewritten:
+- Accepted submission, no tests / failing tests → **5 XP**
+- Per-test passing count (`result_json.passed: int`) → **+40 XP per test**
+- `result_json.test_passed: true` (boolean fallback) → **+40 XP**
+- Failed / timeout / errored → **0 XP**
+
+Frontend optimistic update in `handleSubmit` now mirrors this and refetches `/me/stats` after submit to reconcile.
+
+**Cosmetics wired to backend** (`MentorApp.tsx`):
+- `cosmetics` lifted to top-level state, loaded on mount via `getMyCosmetics`, saved on selection via `updateMyCosmetics` (`saveCosmetics` helper).
+- Selection state shape: `{ frame?: string, background?: string, aura?: string }`.
+- Locked items (`cost > xp`) are disabled with "Locked — need X XP" tooltip; old local-only `useState` for cosmetics is gone.
+
+**New XP spendable: Avatar Aura** — animated rings layered behind the avatar.
+- Catalog: None (0), Pulse (75), Sparkle (200), Orbit (400), Lightning (800), Cosmic (1500), Galaxy (3000).
+- Keyframes added in `frontend-vite/src/index.css`: `auraSpin`, `auraPulse`, `auraFlicker`.
+- Frame/Background catalogs unchanged but shop now has 3 columns.
+
+**Submission detail view** — extracted reusable `SubmissionDetailPanel` component (in `MentorApp.tsx`, just above `SubmissionsView`):
+- Status pill, exit code, timeout flag, test result, short submission id.
+- Sections for code (`<pre>`), stdout, stderr/error, auto-grader output, error_summary fallback.
+- Teacher: textarea + Save button calling `PATCH /submissions/{id}/feedback`.
+- Student: read-only feedback.
+- Used in `SubmissionsView` column 3 AND as a modal overlay in `AssignmentView` (backdrop click closes, content stop-propagates). `onSaveFeedback` is now destructured in `AssignmentView` and passed through.
+
+### Security review (NOT yet fixed — open items)
+
+**Critical:**
+1. **Subprocess sandbox is escapable.** Restricted-builtins approach is bypassable via `().__class__.__base__.__subclasses__()`. Child process inherits `SECRET_KEY`, `DATABASE_URL`, `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY` (only `PYTHONPATH` filtered). One escape = full server compromise. **Action: require Docker sandbox in prod, or replace with gVisor/firejail.**
+2. **Docker sandbox missing `--cpus` cap** (`docker_executor.py:54-63`). Has memory/pids/network/read-only, no CPU limit.
+3. **WS rooms have no access control** (`app/api/ws_collab.py`, `app/api/ws_sandbox.py`). JWT validated but `room_id` is not checked against the user's classroom/assignment membership. Any authenticated user can join any room.
+4. **`SECRET_KEY` defaults to `"change-me-in-production"`** (`config.py:43`). Pydantic boots with this. Add a startup assert when `app_env == "production"`.
+
+**High:**
+5. JWT in `localStorage` + no CSP / X-Frame-Options / Referrer-Policy headers in `main.py`.
+6. `email_verified` not checked in `user_service.get_or_create_google_user`.
+7. Email-based account merging across providers (dev-login + google_id backfill).
+8. Rate-limiting incomplete: `/api/v1/submissions/` runs the sandbox but is not rate-limited; `/ws/sandbox/run` also unlimited. `Limiter(key_func=get_remote_address)` does not honor `X-Forwarded-For` — limits collapse to one global bucket behind Northflank's proxy.
+9. `/me/stats` is a GET that mutates and commits the user row (writes XP on every read).
+
+**Medium:**
+10. `/health` returns 200 with `{"status": "db_error"}` when DB is down. Should be 503; drop the raw exception string.
+11. Admin email hardcoded in two places (`config.py:50`, `MentorApp.tsx:628`).
+12. `dev_login` accepts `role` as a query parameter; should be a Pydantic body and pinned to "student".
+13. JWT has no `aud`/`iss`, no refresh, no revocation; 60-min lifetime.
+14. Subprocess sandbox env filter is denylist-of-one — needs explicit allowlist.
+15. No request-size limit middleware.
+
+**Low / hygiene:**
+16. `app/__pycache__` and `alembic/versions/__pycache__` present in tree — confirm `.gitignore` covers them.
+17. `_calc_xp` `passed: int` branch is effectively dead (submission service only stores `test_passed: bool`). Either populate `passed` count or drop the branch.
+18. `error_summary` is computed on the backend (`get_submission_status_display`) and the frontend ignores it most of the time — pick one source.
+19. OAuth callback redirects to a single `?error=auth_failed` on every failure — no `reason` distinguishing missing-code vs state-mismatch vs token-exchange. Hard to debug user reports.
+20. `_PLACEHOLDER_HINTS` (`hint_service.py:42`) clamps the index, so anyone past attempt 5 always sees the same hint. Either cycle (modulo) or accept the clamp explicitly.
+
+### Code-quality findings (NOT yet fixed)
+
+- **Name drift**: "Chalk" in `main.py`, "Strawie" in frontend (`Logo.tsx`, `api.ts`), "lambda" in dir/Docker, `chalk_ws_` in temp dirs. Pick one.
+- **Duplicate sandbox limits**: `config.py` has `sandbox_max_output_bytes` but executors import `MAX_OUTPUT_BYTES` from `app/sandbox/limits.py` directly — config value is dead.
+- **`xpLevel()` bug at the cap**: `MentorApp.tsx:304-327` — when `xp >= 10000`, the cap branch sits inside the loop at wrong nesting; for xp=50000 it returns `next=300`. Move cap check before the loop.
+- **`MentorApp.tsx` is ~2740 lines** (was ~2300, grew this session). Split into per-view files in `src/views/`.
+- **Achievements + streak are hardcoded** (`ACHIEVEMENTS` literals, `"Streak: 7"` constant) — fake stats; either implement or remove per landing-page anti-fake-stats preference.
+- **`saveCosmetics` swallows errors silently** — failed PUT shows local change as if it persisted.
+- **`ChalkLogo` is `StrawieLogoSvg as ChalkLogo`** — naming inconsistency in `components/Logo.tsx:44`.
+- **Frontend admin check** `user?.email === "madiyar.zmm@gmail.com"` duplicates server logic — should come from `/me`.
+- **`_calc_xp` reads all submissions per `/me/stats`** — move XP increment to submission write path.
+- **Tests directory is sparse** — no coverage on sandbox, OAuth state, or classroom/group authz.
+
+### Suggested next steps (gamification roadmap)
+
+**Cheap wins:**
+- Move level thresholds server-side; return `{xp, level, title, next_threshold}` from `/me/stats`.
+- Add real streak: `current_streak`, `longest_streak`, `last_active_date` on `User`; update on submission; replace hardcoded "7".
+
+**Medium:**
+- Real achievements table (or JSONB `unlocks` on user); server checks rules on submission write; `/me/achievements`.
+- Server-owned cosmetics catalog (lock state on server, not just by-cost on client).
+
+**Bigger:**
+- Classroom/group leaderboards.
+- Daily/weekly quests.
+- Level-up modal (currently only confetti on accepted submission).
+- Decide: is XP progression-only (Duolingo) or a spendable currency (Khan)? Shop implies the latter but nothing actually deducts.
+
+### Open priority if returning
+Full audit (items 1–20 + code-quality list) is recorded above. **Blockers before any non-trusted user touches this: security #1 (sandbox escape), #3 (WS room ACL), #4 (default `SECRET_KEY`).** Tier 2: #5 (CSP/token storage), #8 (rate limiting). Everything else can ship later.

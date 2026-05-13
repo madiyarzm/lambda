@@ -6,6 +6,8 @@ clients connected to the same room. Conflict resolution is handled on the
 client by Yjs/CRDT logic.
 
 Authentication: clients must pass a valid JWT via the `token` query parameter.
+Authorisation: the room_id encodes a classroom + assignment; the user must
+belong to that classroom (teacher, group member, or admin). See `ws_acl.py`.
 """
 
 import logging
@@ -16,6 +18,8 @@ from jose import JWTError
 from app.config import get_settings
 from app.core.collab_manager import manager
 from app.core.security import decode_access_token
+from app.core.ws_acl import user_can_join_room
+from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +32,8 @@ async def collab_websocket(
     room_id: str,
 ) -> None:
     """
-    Collaborative editing WebSocket. Requires a valid JWT in the `token` query param.
+    Collaborative editing WebSocket. Requires a valid JWT in the `token` query param
+    AND the user must be a member of the classroom encoded in `room_id`.
     """
     token = websocket.query_params.get("token")
     if not token:
@@ -37,13 +42,27 @@ async def collab_websocket(
 
     try:
         settings = get_settings()
-        decode_access_token(token, settings=settings)
+        payload = decode_access_token(token, settings=settings)
     except JWTError:
         await websocket.close(code=4401, reason="Invalid or expired token")
         return
     except Exception as exc:
         logger.exception("Unexpected error validating WebSocket token: %s", exc)
         await websocket.close(code=4500, reason="Internal error")
+        return
+
+    user_id = payload.get("sub")
+    if not user_id:
+        await websocket.close(code=4401, reason="Invalid token payload")
+        return
+
+    db = SessionLocal()
+    try:
+        allowed = user_can_join_room(db, user_id=user_id, room_id=room_id)
+    finally:
+        db.close()
+    if not allowed:
+        await websocket.close(code=4403, reason="Not authorised for this room")
         return
 
     await manager.connect(room_id, websocket)

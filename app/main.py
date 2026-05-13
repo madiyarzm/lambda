@@ -21,6 +21,7 @@ from app.api.router import api_router
 from app.api import ws_collab, ws_sandbox
 from app.config import get_settings
 from app.core.limiter import limiter
+from app.core.startup_guards import validate_production_settings
 from app.db.init_db import init_db
 from app.db.session import SessionLocal
 from app.services.submission_service import delete_expired_submissions
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     """Factory for the FastAPI app. Used by uvicorn and tests."""
     settings = get_settings()
+    validate_production_settings(settings)
     app = FastAPI(
         title="Chalk",
         description="Collaborative coding classroom platform",

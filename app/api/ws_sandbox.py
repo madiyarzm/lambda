@@ -26,7 +26,9 @@ from jose import JWTError
 
 from app.config import get_settings
 from app.core.security import decode_access_token
+from app.core.ws_rate_limit import allow as ws_allow
 from app.sandbox.limits import DEFAULT_TIMEOUT_SECONDS, MAX_CODE_BYTES
+from app.sandbox.subprocess_executor import sandbox_env
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +102,17 @@ async def sandbox_run_ws(websocket: WebSocket) -> None:
 
     try:
         settings = get_settings()
-        decode_access_token(token, settings=settings)
+        payload = decode_access_token(token, settings=settings)
     except JWTError:
         await websocket.close(code=4401, reason="Invalid or expired token")
         return
     except Exception:
         await websocket.close(code=4500, reason="Internal error")
+        return
+
+    rate_id = payload.get("sub") or (websocket.client.host if websocket.client else "anon")
+    if not await ws_allow(f"ws_sandbox:{rate_id}", max_per_minute=20):
+        await websocket.close(code=4429, reason="Too many requests")
         return
 
     await websocket.accept()
@@ -136,7 +143,7 @@ async def sandbox_run_ws(websocket: WebSocket) -> None:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
+            env=sandbox_env(),
         )
 
         # Queue bridges the ws-receiver coroutine → stderr-reader coroutine.
