@@ -222,8 +222,13 @@ export async function getSubmission(submissionId: string): Promise<any> {
 export async function createSubmission(
   assignmentId: string,
   code: string,
+  status?: string,
+  resultJson?: Record<string, unknown>,
 ): Promise<any> {
-  return apiClient.post("/api/v1/submissions/", { assignment_id: assignmentId, code });
+  const body: Record<string, unknown> = { assignment_id: assignmentId, code };
+  if (status) body.status = status;
+  if (resultJson) body.result_json = resultJson;
+  return apiClient.post("/api/v1/submissions/", body);
 }
 
 // --- Sandbox ---

@@ -107,50 +107,109 @@ def _get_classroom_from_assignment(db: Session, assignment: Assignment) -> Class
     return classroom
 
 
+_ALLOWED_STATUSES = {"success", "error", "timeout"}
+
+
+def xp_for_submission(submission: Submission) -> int:
+    """How many XP a single submission is worth, by Chalk's scoring rules.
+
+    Kept in one place so the create-submission write path and any future
+    recomputation use the same numbers.
+    """
+    if submission.status != "success":
+        return 0
+    result = submission.result_json if isinstance(submission.result_json, dict) else {}
+    passed = result.get("passed")
+    if isinstance(passed, int) and passed > 0:
+        return passed * 40
+    if result.get("test_passed") is True:
+        return 40
+    return 5
+
+
+def _sanitize_client_result(raw: dict | None) -> dict:
+    """Keep only the keys we render. Truncate large strings so a malicious
+    client cannot bloat the DB row."""
+    out: dict = {}
+    if not isinstance(raw, dict):
+        return out
+    max_len = 64 * 1024
+    for key in ("stdout", "stderr", "test_output"):
+        val = raw.get(key)
+        if isinstance(val, str):
+            out[key] = val[:max_len]
+    if "test_passed" in raw and isinstance(raw["test_passed"], (bool, type(None))):
+        out["test_passed"] = raw["test_passed"]
+    if "passed" in raw and isinstance(raw["passed"], int):
+        out["passed"] = max(0, min(raw["passed"], 1000))
+    if "exit_code" in raw and isinstance(raw["exit_code"], int):
+        out["exit_code"] = raw["exit_code"]
+    return out
+
+
 def create_submission(
     db: Session,
     *,
     assignment_id: UUID,
     user: User,
     code: str,
+    client_status: str | None = None,
+    client_result: dict | None = None,
 ) -> Submission:
     """
-    Create a new submission for an assignment and run code in the sandbox.
+    Create a new submission for an assignment.
 
-    Runs the code in the sandbox, then stores the submission with real
-    status and result (stdout, stderr) for display.
+    If `client_status` and `client_result` are provided (Pyodide path) they
+    are stored as-is after sanitization. Otherwise the server runs the code
+    in its own sandbox.
     """
 
     assignment = get_assignment_or_404(db, assignment_id=assignment_id)
     classroom = _get_classroom_from_assignment(db, assignment)
     ensure_user_can_access_classroom(classroom, user, db)
 
-    sandbox_result = run_code(code)
-    result_json: dict = {
-        "stdout": sandbox_result.stdout or "",
-        "stderr": sandbox_result.stderr or "",
-        **(sandbox_result.result_json or {}),
-    }
-
-    # Auto-grading: if the assignment has test_code, run it appended to student code.
-    if assignment.test_code and assignment.test_code.strip():
-        combined = code + "\n\n# === auto-grader ===\n" + assignment.test_code
-        test_result = run_code(combined)
-        result_json["test_passed"] = test_result.status == "success"
-        result_json["test_output"] = (test_result.stdout or "") + (test_result.stderr or "")
+    if client_status in _ALLOWED_STATUSES:
+        status = client_status
+        result_json = _sanitize_client_result(client_result)
+        result_json.setdefault("test_passed", None)
     else:
-        result_json["test_passed"] = None
+        sandbox_result = run_code(code)
+        result_json = {
+            "stdout": sandbox_result.stdout or "",
+            "stderr": sandbox_result.stderr or "",
+            **(sandbox_result.result_json or {}),
+        }
+        if assignment.test_code and assignment.test_code.strip():
+            combined = code + "\n\n# === auto-grader ===\n" + assignment.test_code
+            test_result = run_code(combined)
+            result_json["test_passed"] = test_result.status == "success"
+            result_json["test_output"] = (test_result.stdout or "") + (test_result.stderr or "")
+        else:
+            result_json["test_passed"] = None
+        status = sandbox_result.status
 
     submission = Submission(
         assignment_id=assignment.id,
         user_id=user.id,
         code=code,
-        status=sandbox_result.status,
+        status=status,
         result_json=result_json,
     )
     db.add(submission)
     db.commit()
     db.refresh(submission)
+
+    # Increment XP at write time. The atomic SQL update avoids the
+    # read-modify-write race that an in-process `user.xp += delta` would
+    # introduce if two submissions land at the same moment.
+    delta = xp_for_submission(submission)
+    if delta:
+        db.query(User).filter(User.id == user.id).update(
+            {User.xp: User.xp + delta}, synchronize_session=False
+        )
+        db.commit()
+        db.refresh(user)
+
     return submission
 
 

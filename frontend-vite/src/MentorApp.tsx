@@ -16,7 +16,6 @@ import {
   getMyActivity,
   getMyCosmetics,
   getMyStats,
-  getSandboxWsUrl,
   isLoggedIn,
   joinGroup,
   listAllUsers,
@@ -31,6 +30,13 @@ import {
 } from "./lib/api";
 import { Play, Square, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Confetti } from "./components/Confetti";
+import {
+  onPyodideProgress,
+  runForSubmission,
+  runInteractive,
+  warmupPyodide,
+  type RunOutput,
+} from "./lib/pyodideRunner";
 import { ChalkLogo } from "./components/Logo";
 import { Avatar } from "./components/Avatar";
 import { Badge } from "./components/Badge";
@@ -606,16 +612,23 @@ export const MentorApp: React.FC = () => {
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (stdinLines: string[] = []) => {
     if (!currentAssignment) return;
     setLoading(true);
     setError(null);
     try {
-      const sub = await createSubmission(currentAssignment.id, code);
+      const result = await runForSubmission(code, currentAssignment.test_code, stdinLines);
+      const resultJson: Record<string, unknown> = {
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exit_code: result.exit_code,
+        test_passed: result.test_passed,
+        test_output: result.test_output,
+      };
+      const sub = await createSubmission(currentAssignment.id, code, result.status, resultJson);
       setSubmissions(prev => [sub, ...prev]);
       if (sub.status === "success") {
         setShowConfetti(true);
-        // Match backend: per-test count if available, else +40 for test_passed=true, else +5 base.
         const r = sub.result_json || {};
         const passed = typeof r.passed === "number" ? r.passed : 0;
         const earned = passed > 0 ? passed * 40 : r.test_passed === true ? 40 : 5;
@@ -625,7 +638,6 @@ export const MentorApp: React.FC = () => {
       } else {
         setFailedAttempts(prev => prev + 1);
       }
-      // Reconcile with server truth (handles edge cases where optimistic guess drifts).
       void refreshStats();
     } catch (e: any) { setError(e.message || "Failed to submit."); } finally { setLoading(false); }
   };
@@ -2086,7 +2098,7 @@ interface AssignmentViewProps {
   selectedSubmission: any | null;
   onSelectSubmission: (s: any | null) => void;
   loading: boolean;
-  onSubmit: () => void;
+  onSubmit: (stdinLines: string[]) => void;
   onBack: () => void;
   onSaveFeedback: (submissionId: string, feedback: string) => Promise<void>;
   failedAttempts: number;
@@ -2115,17 +2127,17 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   // Streaming terminal state
   const [streamLines, setStreamLines] = useState<StreamLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [inputPrompt, setInputPrompt] = useState<string | null>(null);
-  const [inputValue, setInputValue] = useState("");
   const [terminalHeight, setTerminalHeight] = useState(176);
   const [lastRunInfo, setLastRunInfo] = useState<{ exitCode: number; elapsed: number } | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [stdinText, setStdinText] = useState("");
+  const [stdinOpen, setStdinOpen] = useState(false);
+  const [pyLoading, setPyLoading] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const lineId = useRef(0);
   const runCount = useRef(0);
   const runStartRef = useRef(0);
   const dragStateRef = useRef<{ startY: number; startH: number } | null>(null);
+  const codeNeedsInput = /\binput\s*\(/.test(code);
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -2133,27 +2145,24 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     }
   }, [streamLines]);
 
+  // Begin downloading Pyodide as soon as the assignment view mounts so the
+  // first Run feels instant.
   useEffect(() => {
-    if (inputPrompt !== null) inputRef.current?.focus();
-  }, [inputPrompt]);
-
-  useEffect(() => {
-    return () => { wsRef.current?.close(); };
+    warmupPyodide();
+    const off = onPyodideProgress((e) => {
+      if (e.kind === "loading") setPyLoading(true);
+      if (e.kind === "ready") setPyLoading(false);
+    });
+    return off;
   }, []);
 
-  const handleRunLocal = () => {
+  // Auto-open the stdin panel when input() appears in code.
+  useEffect(() => {
+    if (codeNeedsInput && !stdinOpen) setStdinOpen(true);
+  }, [codeNeedsInput, stdinOpen]);
+
+  const handleRunLocal = async () => {
     if (isRunning) return;
-    if (wsRef.current) {
-      wsRef.current.onclose = null;
-      wsRef.current.onerror = null;
-      wsRef.current.onmessage = null;
-      wsRef.current.close();
-    }
-    const token = window.localStorage.getItem("lambda_token");
-    if (!token) return;
-    const url = `${getSandboxWsUrl()}?token=${encodeURIComponent(token)}`;
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
 
     runCount.current += 1;
     const thisRun = runCount.current;
@@ -2162,50 +2171,36 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     } else {
       setStreamLines(prev => [...prev, { id: lineId.current++, text: `── Run ${thisRun} ──\n`, type: "info" }]);
     }
+    if (pyLoading) {
+      setStreamLines(prev => [...prev, { id: lineId.current++, text: "Loading Python runtime (~10MB, first run only)…\n", type: "info" }]);
+    }
     setIsRunning(true);
-    setInputPrompt(null);
-    setInputValue("");
     setLastRunInfo(null);
     runStartRef.current = Date.now();
 
-    ws.onopen = () => { ws.send(JSON.stringify({ code })); };
-
-    ws.onmessage = (evt) => {
-      const msg = JSON.parse(evt.data as string);
-      if (msg.type === "stdout" || msg.type === "stderr") {
-        setStreamLines(prev => [...prev, { id: lineId.current++, text: msg.text, type: msg.type }]);
-      } else if (msg.type === "input_request") {
-        setInputPrompt(msg.prompt ?? "");
-      } else if (msg.type === "done") {
-        const elapsed = parseFloat(((Date.now() - runStartRef.current) / 1000).toFixed(2));
-        setLastRunInfo({ exitCode: msg.exit_code ?? 0, elapsed });
-        setIsRunning(false);
-        setInputPrompt(null);
-      }
+    const stdinLines = stdinText.length > 0 ? stdinText.split(/\r?\n/) : [];
+    const onOutput = (e: RunOutput) => {
+      setStreamLines(prev => [...prev, { id: lineId.current++, text: e.text, type: e.type }]);
     };
 
-    ws.onerror = () => {
-      setStreamLines(prev => [...prev, { id: lineId.current++, text: "Connection error.\n", type: "stderr" }]);
+    try {
+      const result = await runInteractive({ code, stdinLines, onOutput });
+      setLastRunInfo({ exitCode: result.exit_code, elapsed: result.elapsed });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStreamLines(prev => [...prev, { id: lineId.current++, text: msg + "\n", type: "stderr" }]);
+    } finally {
       setIsRunning(false);
-      setInputPrompt(null);
-    };
-
-    ws.onclose = () => {
-      setIsRunning(false);
-      setInputPrompt(null);
-    };
+    }
   };
 
+  // Pyodide on the main thread can't be hard-cancelled mid-execution. The
+  // Stop button is left in place but currently just marks the run as
+  // stopped in the UI; execution finishes in the background.
   const handleStop = () => {
-    if (!wsRef.current) return;
-    wsRef.current.onclose = null;
-    wsRef.current.onerror = null;
-    wsRef.current.onmessage = null;
-    wsRef.current.close();
-    wsRef.current = null;
-    setStreamLines(prev => [...prev, { id: lineId.current++, text: "^C\n", type: "stderr" }]);
+    if (!isRunning) return;
+    setStreamLines(prev => [...prev, { id: lineId.current++, text: "^C (run will finish in background)\n", type: "stderr" }]);
     setIsRunning(false);
-    setInputPrompt(null);
   };
 
   const handleTerminalDragStart = (e: React.MouseEvent) => {
@@ -2234,14 +2229,6 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     }
     return lines.length ? lines : undefined;
   }, [streamLines]);
-
-  const handleSendInput = () => {
-    if (!wsRef.current || inputPrompt === null) return;
-    wsRef.current.send(JSON.stringify({ type: "input_response", value: inputValue }));
-    setStreamLines(prev => [...prev, { id: lineId.current++, text: inputValue + "\n", type: "stdout" }]);
-    setInputPrompt(null);
-    setInputValue("");
-  };
 
   const showRoster = userRole === "teacher" && isHomework && groupMembers.length > 0;
   const subByUserId = Object.fromEntries(submissions.map((s: any) => [s.user_id, s]));
@@ -2429,7 +2416,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   </button>
                 )}
                 <button
-                  onClick={onSubmit}
+                  onClick={() => onSubmit(stdinText.length > 0 ? stdinText.split(/\r?\n/) : [])}
                   disabled={loading}
                   className="px-3 py-1.5 text-xs rounded-[10px] border font-medium disabled:opacity-60 transition-colors"
                   style={{
@@ -2439,6 +2426,19 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   }}
                 >
                   {isHomework ? "Submit Homework" : "Submit"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStdinOpen(v => !v)}
+                  className="px-2.5 py-1.5 text-xs rounded-[10px] border transition-colors"
+                  style={{
+                    borderColor: stdinOpen ? "var(--indigo)" : "var(--border)",
+                    background: "transparent",
+                    color: stdinOpen ? "var(--indigo)" : "var(--muted)",
+                  }}
+                  title="Pre-supply input() values, one per line"
+                >
+                  Inputs{stdinText ? ` · ${stdinText.split(/\r?\n/).filter(l => l.length > 0).length}` : ""}
                 </button>
                 {userRole === "student" && (
                   <button
@@ -2457,6 +2457,34 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   </button>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* stdin panel — pre-supplied input() values */}
+          {editorMode === "code" && stdinOpen && (
+            <div className="border-t px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--bg-2)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                  Inputs · one value per line · consumed by input() in order
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStdinOpen(false)}
+                  className="text-[10px]"
+                  style={{ color: "var(--subtle)" }}
+                >
+                  hide
+                </button>
+              </div>
+              <textarea
+                value={stdinText}
+                onChange={e => setStdinText(e.target.value)}
+                placeholder={"hello\n42"}
+                rows={3}
+                spellCheck={false}
+                className="w-full resize-none rounded-[6px] px-2 py-1.5 font-mono text-[12px] outline-none"
+                style={{ background: "#0d1117", color: "#e2e8f0", border: "1px solid var(--border)" }}
+              />
             </div>
           )}
 
@@ -2514,8 +2542,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 {isRunning && (
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#4ade80", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
                 )}
-                {inputPrompt !== null && (
-                  <span className="text-[10px]" style={{ color: "#4ade80" }}>⌨ waiting for input</span>
+                {pyLoading && (
+                  <span className="text-[10px]" style={{ color: "#fbbf24" }}>downloading Python…</span>
                 )}
                 {!isRunning && lastRunInfo !== null && (
                   <span className="text-[10px] font-mono" style={{ color: lastRunInfo.exitCode === 0 ? "#4ade80" : "#f87171" }}>
@@ -2537,7 +2565,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               className="flex-1 overflow-auto px-3 py-2 font-mono text-[12.5px] leading-relaxed"
               style={{ background: "#0d1117" }}
             >
-              {streamLines.length === 0 && !isRunning && inputPrompt === null ? (
+              {streamLines.length === 0 && !isRunning ? (
                 <span style={{ color: "#444" }}>Run your code to see output here...</span>
               ) : (
                 <>
@@ -2554,21 +2582,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                       </span>
                     ))}
                   </pre>
-                  {inputPrompt !== null && (
-                    <div className="flex items-center">
-                      <span className="shrink-0 mr-1" style={{ color: "#4ade80" }}>{inputPrompt || "›"}</span>
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={inputValue}
-                        onChange={e => setInputValue(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") handleSendInput(); }}
-                        className="flex-1 bg-transparent outline-none font-mono text-[12.5px]"
-                        style={{ color: "#e2e8f0", caretColor: "#4ade80" }}
-                      />
-                    </div>
-                  )}
-                  {isRunning && inputPrompt === null && (
+                  {isRunning && (
                     <span className="inline-block w-[7px] h-[14px] align-middle" style={{ background: "#4ade80", animation: "pulseDot 1s step-end infinite" }} />
                   )}
                 </>

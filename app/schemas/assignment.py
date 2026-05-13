@@ -60,9 +60,16 @@ class SubmissionBase(BaseModel):
 class SubmissionCreate(SubmissionBase):
     """
     Payload for creating a submission for an assignment.
+
+    `status` and `result_json` may be supplied by a trusted client-side
+    runner (Pyodide). When present the server stores them as-is instead of
+    re-executing the code. When absent the server falls back to its own
+    sandbox executor.
     """
 
     assignment_id: UUID
+    status: str | None = None
+    result_json: dict | None = None
 
 
 class SubmissionRead(SubmissionBase):

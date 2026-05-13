@@ -58,7 +58,14 @@ def create_submission_endpoint(
 ) -> SubmissionRead:
     """Create a new submission: run code in sandbox and save result."""
     try:
-        submission = create_submission(db, assignment_id=payload.assignment_id, user=current_user, code=payload.code)
+        submission = create_submission(
+            db,
+            assignment_id=payload.assignment_id,
+            user=current_user,
+            code=payload.code,
+            client_status=payload.status,
+            client_result=payload.result_json,
+        )
     except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     except ValueError:

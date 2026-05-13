@@ -4,6 +4,18 @@ Collaborative coding classroom platform. Teachers create groups/classrooms/assig
 
 ---
 
+## Working with Madiyar (learning mode)
+
+Madiyar is still learning. Treat this project as a learning experience, not just a delivery.
+
+- Explain unfamiliar concepts in plain English. Define jargon on first use (CSP, JWT, CSRF, middleware, race condition, etc.).
+- Name patterns. When a fix involves a general concept (privilege escalation, defense in depth, REST semantics), call it out by name so it generalizes.
+- Distinguish **general architecture practice** from **Lambda-specific choices**.
+- Keep reports short — group by "what could actually go wrong", not by CVE severity.
+- **Whenever you explain a concept, pattern, or how big platforms solve something, append it to `insights.md` at repo root.** Newest entry on top, dated, concept-first. That file is Madiyar's running learning log — keep building it.
+
+---
+
 ## Repository Layout
 
 ```
@@ -258,19 +270,22 @@ Frontend optimistic update in `handleSubmit` now mirrors this and refetches `/me
 - Student: read-only feedback.
 - Used in `SubmissionsView` column 3 AND as a modal overlay in `AssignmentView` (backdrop click closes, content stop-propagates). `onSaveFeedback` is now destructured in `AssignmentView` and passed through.
 
-### Security review (NOT yet fixed — open items)
+### Security review (open items)
+
+**Resolved 2026-05-12 audit pass:**
+- **#3 WS room ACL** — `app/core/ws_acl.py` parses `room_id` (editor: `<classroom>:<assignment>:<file>` or drawing: `drawing:<classroom>:<assignment>`) and requires user to be admin, classroom teacher, or member of the classroom's group. `app/api/ws_collab.py` calls it before relaying. Unknown room shapes are rejected with code 4403.
+- **#4 default SECRET_KEY** — `app/core/startup_guards.py::validate_production_settings` raises `InsecureProductionConfigError` if `ENV=production` and `SECRET_KEY=="change-me-in-production"`. Wired into `create_app()` in `app/main.py`.
+- **#8 rate limiting** — proxy-aware key func in `app/core/limiter.py` honours `X-Forwarded-For` outside dev (Northflank proxy). `/api/v1/submissions/` POST capped at 10/min/IP. `/ws/sandbox/run` capped at 20/min/user via `app/core/ws_rate_limit.py` (in-memory sliding window — per-instance only; swap to Redis when scaling beyond one Northflank container).
+- **#14 subprocess env allowlist** — `sandbox_env()` in `app/sandbox/subprocess_executor.py` returns only `PATH/HOME/LANG/LC_ALL/LC_CTYPE/TZ`. Reused by `app/api/ws_sandbox.py`. `SECRET_KEY/DATABASE_URL/GOOGLE_CLIENT_SECRET/ANTHROPIC_API_KEY` no longer reachable from inside the sandbox.
 
 **Critical:**
-1. **Subprocess sandbox is escapable.** Restricted-builtins approach is bypassable via `().__class__.__base__.__subclasses__()`. Child process inherits `SECRET_KEY`, `DATABASE_URL`, `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY` (only `PYTHONPATH` filtered). One escape = full server compromise. **Action: require Docker sandbox in prod, or replace with gVisor/firejail.**
-2. **Docker sandbox missing `--cpus` cap** (`docker_executor.py:54-63`). Has memory/pids/network/read-only, no CPU limit.
-3. **WS rooms have no access control** (`app/api/ws_collab.py`, `app/api/ws_sandbox.py`). JWT validated but `room_id` is not checked against the user's classroom/assignment membership. Any authenticated user can join any room.
-4. **`SECRET_KEY` defaults to `"change-me-in-production"`** (`config.py:43`). Pydantic boots with this. Add a startup assert when `app_env == "production"`.
+1. **Subprocess sandbox is still escapable** (restricted-builtins is bypassable). Env-var theft is blocked by #14, so a successful escape can no longer steal SECRET_KEY/DATABASE_URL/etc — only burn CPU/memory or make outbound requests from the server's IP. `app/core/startup_guards.py` currently *warns* (not refuses) in production because Northflank free tier doesn't support Docker-in-Docker (Option E in 2026-05-12 discussion). Real fix is one of: (a) e2b.dev/Judge0 remote sandbox API, (b) move to Fly.io Machines or DO droplet with Docker, (c) Pyodide in the browser. Re-tighten guard to a refusal once chosen.
+2. **Docker sandbox missing `--cpus` cap** (`docker_executor.py:54-63`). Has memory/pids/network/read-only, no CPU limit. Only relevant once #1 is resolved with Docker.
 
 **High:**
 5. JWT in `localStorage` + no CSP / X-Frame-Options / Referrer-Policy headers in `main.py`.
 6. `email_verified` not checked in `user_service.get_or_create_google_user`.
 7. Email-based account merging across providers (dev-login + google_id backfill).
-8. Rate-limiting incomplete: `/api/v1/submissions/` runs the sandbox but is not rate-limited; `/ws/sandbox/run` also unlimited. `Limiter(key_func=get_remote_address)` does not honor `X-Forwarded-For` — limits collapse to one global bucket behind Northflank's proxy.
 9. `/me/stats` is a GET that mutates and commits the user row (writes XP on every read).
 
 **Medium:**
@@ -278,7 +293,6 @@ Frontend optimistic update in `handleSubmit` now mirrors this and refetches `/me
 11. Admin email hardcoded in two places (`config.py:50`, `MentorApp.tsx:628`).
 12. `dev_login` accepts `role` as a query parameter; should be a Pydantic body and pinned to "student".
 13. JWT has no `aud`/`iss`, no refresh, no revocation; 60-min lifetime.
-14. Subprocess sandbox env filter is denylist-of-one — needs explicit allowlist.
 15. No request-size limit middleware.
 
 **Low / hygiene:**
@@ -318,4 +332,4 @@ Frontend optimistic update in `handleSubmit` now mirrors this and refetches `/me
 - Decide: is XP progression-only (Duolingo) or a spendable currency (Khan)? Shop implies the latter but nothing actually deducts.
 
 ### Open priority if returning
-Full audit (items 1–20 + code-quality list) is recorded above. **Blockers before any non-trusted user touches this: security #1 (sandbox escape), #3 (WS room ACL), #4 (default `SECRET_KEY`).** Tier 2: #5 (CSP/token storage), #8 (rate limiting). Everything else can ship later.
+2026-05-12 audit pass closed #3, #4, #8, #14. **Top remaining blocker: #1 (sandbox escape, partially mitigated by #14 env allowlist — needs real isolation: e2b.dev API, Fly.io+Docker, or Pyodide-in-browser).** Tier 2: #5 (CSP + move JWT off localStorage), #15 (request size cap), then the High items (#6, #7, #9). Everything else can ship later.
