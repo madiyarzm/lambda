@@ -51,6 +51,10 @@ frontend-vite/.env.local
 # Cursor / local assistants metadata
 .cursor/
 
+# Local-only docs (session context for Claude + personal learning log)
+CLAUDE.md
+insights.md
+
 # Accidental paste from terminal (Docker output etc.)
 /sha256:*
 

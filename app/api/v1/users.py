@@ -14,57 +14,68 @@ from sqlalchemy import func, select
 from app.dependencies import CurrentUser, DBSession, RequireAdmin
 from app.models.submission import Submission
 from app.models.user import User
-from app.schemas.user import UserRead, UserRoleUpdate
+from app.schemas.user import RoleChoice, UserRead, UserRoleUpdate
+
+_ALLOWED_ROLES = ("teacher", "student")
 
 router = APIRouter()
 
 
-def _calc_xp(submissions: list) -> int:
-    """
-    Chalk XP model:
-      - Accepted submission with no tests / failing tests: 5 XP
-      - Per-test passing count when available (result_json.passed: int): +40 XP per test
-      - Boolean test pass when only test_passed is present: +40 XP
-      - Failed / timeout / errored submissions: 0 XP
-    """
-    xp = 0
-    for sub in submissions:
-        if sub.status != "success":
-            continue
-        result = sub.result_json if isinstance(sub.result_json, dict) else {}
-        passed = result.get("passed")
-        if isinstance(passed, int) and passed > 0:
-            xp += passed * 40
-            continue
-        if result.get("test_passed") is True:
-            xp += 40
-        else:
-            xp += 5
-    return xp
-
-
 @router.get("/me/stats")
 def get_my_stats(current_user: CurrentUser, db: DBSession) -> dict:
-    """Return XP and submission stats for the authenticated user."""
-    submissions = (
-        db.execute(select(Submission).where(Submission.user_id == current_user.id))
-        .scalars()
-        .all()
-    )
-    total = len(submissions)
-    accepted = sum(1 for s in submissions if s.status == "success")
-    xp = _calc_xp(submissions)
+    """Return XP and submission stats for the authenticated user.
 
-    # Persist the latest computed XP on the user record
-    current_user.xp = xp
-    db.commit()
-
-    return {"xp": xp, "submissions_total": total, "submissions_accepted": accepted}
+    Read-only: XP is maintained on the submission write path
+    (``submission_service.create_submission``), so this endpoint is safe and
+    idempotent — multiple calls don't change state.
+    """
+    total = db.execute(
+        select(func.count()).select_from(Submission).where(Submission.user_id == current_user.id)
+    ).scalar_one()
+    accepted = db.execute(
+        select(func.count())
+        .select_from(Submission)
+        .where(Submission.user_id == current_user.id, Submission.status == "success")
+    ).scalar_one()
+    return {
+        "xp": current_user.xp or 0,
+        "submissions_total": total,
+        "submissions_accepted": accepted,
+    }
 
 
 @router.get("/me", response_model=UserRead)
 def get_current_user_profile(current_user: CurrentUser) -> UserRead:
     """Return profile information for the authenticated user."""
+    return UserRead.model_validate(current_user)
+
+
+@router.post("/me/role", response_model=UserRead)
+def choose_role(
+    body: RoleChoice,
+    current_user: CurrentUser,
+    db: DBSession,
+) -> UserRead:
+    """One-shot role selection on first login.
+
+    Returns 409 if the role is already locked — by design, role choice is
+    permanent so there's no way to swap to teacher later and gain access to
+    data you saw as a student.
+    """
+    if current_user.role_locked:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Role already chosen and cannot be changed.",
+        )
+    if body.role not in _ALLOWED_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Role must be one of {_ALLOWED_ROLES}.",
+        )
+    current_user.role = body.role
+    current_user.role_locked = True
+    db.commit()
+    db.refresh(current_user)
     return UserRead.model_validate(current_user)
 
 

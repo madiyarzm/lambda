@@ -17,7 +17,7 @@ import {
   Lightbulb,
   Target,
 } from "lucide-react";
-import { googleLogin, isLoggedIn } from "./lib/api";
+import { getMe, googleLogin } from "./lib/api";
 import { StrawieLogoSvg } from "./components/Logo";
 
 import strawieTeaching from "./assets/mascots/characters/strawie-teaching.png";
@@ -1247,7 +1247,11 @@ export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isLoggedIn()) navigate("/app", { replace: true });
+    // Cookie auth: probe /me to learn if we're logged in. 401 = not logged in,
+    // stay on the landing page.
+    getMe()
+      .then(() => navigate("/app", { replace: true }))
+      .catch(() => {});
   }, [navigate]);
 
   // Force light surface for the page; rest of the app is dark.

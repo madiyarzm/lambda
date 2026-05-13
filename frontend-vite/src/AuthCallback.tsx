@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { saveToken } from "./lib/api";
+import { getMe } from "./lib/api";
+
+const ERROR_LABELS: Record<string, string> = {
+  state_mismatch: "Login was cancelled or expired. Please try again.",
+  token_exchange_failed: "Google didn't return a usable token. Please try again.",
+  email_not_verified: "Your Google email isn't verified. Verify it with Google, then try again.",
+  account_conflict: "An account with this email already exists. Please contact support.",
+  auth_failed: "Authentication failed. Please try again.",
+};
 
 export const AuthCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -8,18 +16,24 @@ export const AuthCallback: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Token is delivered in the URL hash fragment (not query string) so it
-    // never appears in server logs or Referer headers.
-    const token = window.location.hash.substring(1) || null;
+    // The backend set an httpOnly auth cookie before redirecting here.
+    // Check if this is a new account (role not yet chosen) and route to the
+    // role-pick screen before the main app.
     const err = searchParams.get("error");
-
-    if (token) {
-      saveToken(token);
-      navigate("/app", { replace: true });
-    } else {
-      setError(err || "Authentication failed. Please try again.");
+    if (err) {
+      setError(ERROR_LABELS[err] ?? ERROR_LABELS.auth_failed);
+      return;
     }
-  }, []);
+    getMe()
+      .then((me) => {
+        if (me?.role_locked) {
+          navigate("/app", { replace: true });
+        } else {
+          navigate("/welcome/role", { replace: true });
+        }
+      })
+      .catch(() => setError(ERROR_LABELS.auth_failed));
+  }, [navigate, searchParams]);
 
   if (error) {
     return (

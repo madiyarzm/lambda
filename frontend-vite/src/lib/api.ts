@@ -2,38 +2,33 @@
  * API client for Strawie backend.
  *
  * Mirrors the backend REST API with typed wrappers.
+ *
+ * Authentication: the backend sets the JWT as an httpOnly cookie. The browser
+ * sends it automatically with every same-origin request when
+ * `credentials: "include"` is set, so this client never sees or stores the
+ * token in JavaScript — XSS can't steal it.
  */
 
-// In production (same-origin, Northflank) VITE_API_URL is empty → same-origin.
-// In local dev, Vite runs on :5173 so we point to the backend on :8000.
+// Same-origin in both dev and prod:
+//   * Dev: Vite proxies /api and /ws to the FastAPI backend on :8000.
+//   * Prod: FastAPI serves the built frontend, so it's literally same-origin.
+// VITE_API_URL can override this for unusual setups.
 const API_BASE: string =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  (window.location.port === "5173" ? "http://localhost:8000" : "");
-
-function getToken(): string | null {
-  return window.localStorage.getItem("lambda_token");
-}
-
-function getHeaders(includeAuth = true): Record<string, string> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (includeAuth) {
-    const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-  }
-  return headers;
-}
+  (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 async function api(
   method: string,
   path: string,
   body: unknown = null,
-  auth = true,
 ): Promise<any> {
-  const opts: RequestInit = { method, headers: getHeaders(auth) };
+  const opts: RequestInit = {
+    method,
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`${API_BASE}${path}`, opts);
   if (res.status === 401) {
-    window.localStorage.removeItem("lambda_token");
     throw new Error("Unauthorized");
   }
   if (res.status === 204) return null;
@@ -55,9 +50,8 @@ export const apiClient = {
 };
 
 export function getSandboxWsUrl(): string {
-  const httpBase =
-    (import.meta.env.VITE_API_URL as string | undefined) ??
-    (window.location.port === "5173" ? "http://localhost:8000" : "");
+  // Same-origin WS — cookies travel with the handshake automatically.
+  const httpBase = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
   const wsBase = httpBase
     ? httpBase.replace(/^http/, "ws")
     : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
@@ -78,12 +72,17 @@ export function googleLogin(): void {
   window.location.href = `${API_BASE}/api/v1/auth/google`;
 }
 
-export function saveToken(token: string): void {
-  window.localStorage.setItem("lambda_token", token);
-}
-
 export async function getMe(): Promise<any> {
   return apiClient.get("/api/v1/users/me");
+}
+
+/**
+ * One-shot role selection on first login. The backend rejects with 409 if
+ * the role has already been chosen; the frontend should route around that
+ * by checking `role_locked` from getMe() before calling this.
+ */
+export async function chooseRole(role: "teacher" | "student"): Promise<any> {
+  return apiClient.post("/api/v1/users/me/role", { role });
 }
 
 export async function getMyStats(): Promise<{ xp: number; submissions_total: number; submissions_accepted: number }> {
@@ -102,12 +101,17 @@ export async function getMyActivity(): Promise<{ days: { date: string; count: nu
   return apiClient.get("/api/v1/users/me/activity");
 }
 
-export function isLoggedIn(): boolean {
-  return !!getToken();
-}
-
-export function logout(): void {
-  window.localStorage.removeItem("lambda_token");
+/**
+ * Log out: clear the auth cookie on the server. With cookie auth there is
+ * no token in JS to check, so callers determine logged-in state by calling
+ * getMe() and catching a 401.
+ */
+export async function logout(): Promise<void> {
+  try {
+    await apiClient.post("/api/v1/auth/logout", {});
+  } catch {
+    // Already logged out / network blip — caller will redirect anyway.
+  }
 }
 
 // --- Admin ---

@@ -165,11 +165,10 @@ export function useCollabDrawing(
     };
     aw.on("change", syncPeerCursors);
 
-    const httpBase =
-      window.location.port === "5173" ? "http://localhost:8000" : window.location.origin;
-    const wsBase = httpBase.replace(/^http/, "ws");
-    const token = localStorage.getItem("lambda_token") ?? "";
-    const url = `${wsBase.replace(/\/$/, "")}/ws/collab/${encodeURIComponent(roomId)}?token=${encodeURIComponent(token)}`;
+    // Same-origin WebSocket — the browser sends the httpOnly auth cookie
+    // automatically with the handshake. In dev, Vite proxies /ws → backend.
+    const wsBase = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+    const url = `${wsBase}/ws/collab/${encodeURIComponent(roomId)}`;
     const socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
 

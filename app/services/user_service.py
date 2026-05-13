@@ -9,7 +9,6 @@ from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.models.user import User
 
 
@@ -44,25 +43,46 @@ def get_user_by_email(db: Session, email: str) -> User | None:
 
 
 def _resolve_role_for_email(email: str) -> str:
-    """Return 'teacher' for the admin email, 'student' for everyone else."""
-    settings = get_settings()
-    return "teacher" if email == settings.admin_email else "student"
+    """Default role for a brand-new account.
+
+    Everyone signs up as a student; the real role is chosen on the
+    first-login screen (``POST /users/me/role``) and then locked. The
+    admin-email auto-promotion that used to live here was a privilege-
+    escalation risk: anyone who got Google to send an unverified email
+    matching the admin address would inherit the role.
+    """
+    return "student"
+
+
+class GoogleEmailNotVerifiedError(Exception):
+    """Raised when Google reports the email as not verified."""
+
+
+class GoogleAccountConflictError(Exception):
+    """Raised when a Google login collides with a different account that was not
+    created through Google (e.g. a leftover dev-login row). Linking accounts
+    across providers must be explicit, not silent."""
+
+
+def _profile_says_email_verified(profile: Dict[str, Any]) -> bool:
+    """Return True only if Google explicitly confirms the email is verified.
+
+    Google's userinfo endpoint sends email_verified as a JSON boolean; some
+    older OpenID flows use the string "true". Anything else (missing, false,
+    other strings) is treated as unverified.
+    """
+    value = profile.get("email_verified")
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False
 
 
 def create_user_from_google_profile(
     db: Session, profile: Dict[str, Any], default_role: str = "student"
 ) -> User:
-    """
-    Create a new user record from a Google profile payload.
-
-    Args:
-        db: Database session.
-        profile: Mapping with keys like 'sub', 'email', 'name', 'picture'.
-        default_role: Fallback role for a new user (overridden for admin email).
-
-    Returns:
-        Persisted User instance.
-    """
+    """Create a new user record from a Google profile payload."""
 
     google_id = str(profile.get("sub"))
     email = str(profile.get("email"))
@@ -85,68 +105,54 @@ def create_user_from_google_profile(
 
 
 def get_or_create_google_user(db: Session, profile: Dict[str, Any]) -> User:
+    """Find or create a user from a Google profile.
+
+    Security:
+      * The email must be marked verified by Google. Anyone can put any email
+        on a Google account; only ``email_verified: true`` means Google
+        confirmed the user controls that inbox.
+      * Existing users are matched by ``google_id`` only. We do NOT match by
+        email — silently linking a fresh Google login to a different
+        (e.g. dev-login) account at the same address would let an attacker
+        inherit a role they didn't earn.
     """
-    Find or create a user from a Google profile.
 
-    Existing users are matched by google_id if possible, otherwise by email.
-    The admin email is always kept as teacher.
-    """
+    if not _profile_says_email_verified(profile):
+        raise GoogleEmailNotVerifiedError(
+            "Google reported this email as not verified; cannot sign in."
+        )
 
-    google_id = str(profile.get("sub"))
-    email = str(profile.get("email"))
+    google_id = str(profile.get("sub") or "")
+    email = str(profile.get("email") or "")
 
-    if google_id:
-        existing = get_user_by_google_id(db, google_id=google_id)
-        if existing:
-            # Ensure admin email retains teacher role even if DB has wrong role.
-            expected_role = _resolve_role_for_email(existing.email)
-            if existing.email == get_settings().admin_email and existing.role != expected_role:
-                existing.role = expected_role
-                db.commit()
-                db.refresh(existing)
-            return existing
+    if not google_id or not email:
+        raise GoogleEmailNotVerifiedError("Incomplete Google profile.")
 
-    if email:
-        existing = get_user_by_email(db, email=email)
-        if existing:
-            # Backfill google_id if it was not set earlier.
-            changed = False
-            if not existing.google_id and google_id:
-                existing.google_id = google_id
-                changed = True
-            expected_role = _resolve_role_for_email(email)
-            if email == get_settings().admin_email and existing.role != expected_role:
-                existing.role = expected_role
-                changed = True
-            if changed:
-                db.commit()
-                db.refresh(existing)
-            return existing
+    existing = get_user_by_google_id(db, google_id=google_id)
+    if existing:
+        return existing
+
+    # No Google-linked account yet. If a different account already owns this
+    # email (e.g. a dev-login row), refuse rather than merging silently.
+    email_collision = get_user_by_email(db, email=email)
+    if email_collision is not None:
+        raise GoogleAccountConflictError(
+            "An account with this email already exists but is not linked to Google."
+        )
 
     return create_user_from_google_profile(db, profile)
 
 
 def create_or_get_dev_user(db: Session, email: str, name: str, role: str = "student") -> User:
-    """
-    Development-only helper to create a user without OAuth.
+    """Development-only helper to create a user without OAuth.
 
-    Args:
-        db: Database session.
-        email: Email to use for the dev user.
-        name: Display name.
-        role: User role for permissions (e.g., 'teacher', 'student').
-
-    Returns:
-        Persisted or existing User instance.
+    New users are created with the given ``role`` (default ``student``).
+    Existing users' roles are NOT modified — preventing dev-login from being
+    used as a privilege-escalation or downgrade primitive.
     """
 
     existing = get_user_by_email(db, email=email)
     if existing:
-        # Allow quick role adjustment for development scenarios.
-        if existing.role != role:
-            existing.role = role
-            db.commit()
-            db.refresh(existing)
         return existing
 
     user = User(

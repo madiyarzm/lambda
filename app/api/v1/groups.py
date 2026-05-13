@@ -7,8 +7,9 @@ and gain access to all classrooms within it.
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
+from app.core.limiter import limiter, user_or_ip
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.group import GroupCreate, GroupMemberRead, GroupRead, JoinGroupRequest
 from app.services.group_service import (
@@ -37,7 +38,9 @@ def list_groups(current_user: CurrentUser, db: DBSession) -> list[GroupRead]:
 
 
 @router.post("/", response_model=GroupRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/hour", key_func=user_or_ip)
 def create_group_endpoint(
+    request: Request,
     payload: GroupCreate,
     current_user: CurrentUser,
     db: DBSession,

@@ -20,6 +20,7 @@ from app.core.collab_manager import manager
 from app.core.security import decode_access_token
 from app.core.ws_acl import user_can_join_room
 from app.db.session import SessionLocal
+from app.dependencies import AUTH_COOKIE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,9 @@ async def collab_websocket(
     Collaborative editing WebSocket. Requires a valid JWT in the `token` query param
     AND the user must be a member of the classroom encoded in `room_id`.
     """
-    token = websocket.query_params.get("token")
+    # Cookie first (browsers send it automatically on same-origin WS), then
+    # fall back to the legacy ?token= query param for older clients.
+    token = websocket.cookies.get(AUTH_COOKIE_NAME) or websocket.query_params.get("token")
     if not token:
         await websocket.close(code=4401, reason="Missing token")
         return

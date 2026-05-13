@@ -6,9 +6,10 @@ All endpoints are protected and use the current authenticated user.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
+from app.core.limiter import limiter, user_or_ip
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.assignment import AssignmentCreate, AssignmentRead
 from app.services.assignment_service import create_assignment, get_assignment_or_404, list_assignments_for_classroom
@@ -42,7 +43,9 @@ def list_assignments(
 
 
 @router.post("/", response_model=AssignmentRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit("50/hour", key_func=user_or_ip)
 def create_assignment_endpoint(
+    request: Request,
     payload: AssignmentCreate,
     current_user: CurrentUser,
     db: DBSession,
@@ -71,7 +74,9 @@ def create_assignment_endpoint(
 
 
 @router.post("/{assignment_id}/hint")
+@limiter.limit("20/minute", key_func=user_or_ip)
 def get_hint_endpoint(
+    request: Request,
     assignment_id: UUID,
     payload: HintRequest,
     current_user: CurrentUser,

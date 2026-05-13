@@ -8,8 +8,7 @@ Keeps route handlers thin and testable.
 import logging
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -24,28 +23,49 @@ logger = logging.getLogger(__name__)
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DBSession = Annotated[Session, Depends(get_db)]
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+# Cookie name used by the OAuth callback and dev-login to store the JWT.
+# httpOnly cookies are the primary auth mechanism; Bearer tokens stay
+# supported for backwards compatibility and for non-browser clients.
+AUTH_COOKIE_NAME = "lambda_token"
 
 
-def get_current_user_token(token: str = Depends(oauth2_scheme)) -> str:
-    return token
+def _extract_token(request: Request) -> str | None:
+    """Return the JWT from cookie first, then Authorization: Bearer header.
+
+    Cookie-first means the browser path is the trusted default; the Bearer
+    fallback keeps dev tooling, WebSocket query-param auth, and tests working
+    during the migration off localStorage.
+    """
+    token = request.cookies.get(AUTH_COOKIE_NAME)
+    if token:
+        return token
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        return auth_header.split(" ", 1)[1].strip() or None
+    return None
 
 
 def get_current_user(
-    token: str = Depends(get_current_user_token),
+    request: Request,
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Resolve the current authenticated user from a JWT access token.
+    """Resolve the current authenticated user from a JWT.
 
-    Raises HTTP 401 if the token is invalid or the user does not exist.
+    Token source order: ``lambda_token`` httpOnly cookie, then
+    ``Authorization: Bearer ...`` header. Raises HTTP 401 if neither
+    yields a valid token or the user does not exist.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    token = _extract_token(request)
+    if not token:
+        raise credentials_exception
+
     try:
         payload = decode_access_token(token, settings=settings)
         user_id: str | None = payload.get("sub")  # type: ignore[assignment]

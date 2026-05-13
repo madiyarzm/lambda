@@ -27,6 +27,7 @@ class UserRead(UserBase):
 
     id: UUID
     picture_url: HttpUrl | None = None
+    role_locked: bool
     created_at: datetime
     updated_at: datetime
 
@@ -36,6 +37,16 @@ class UserRead(UserBase):
         """
 
         from_attributes = True
+
+
+class RoleChoice(BaseModel):
+    """Body for the first-time role selection endpoint.
+
+    The user submits this exactly once on signup. The server enforces that
+    ``role_locked`` was False — repeated calls return 409.
+    """
+
+    role: str
 
 
 class TokenResponse(BaseModel):

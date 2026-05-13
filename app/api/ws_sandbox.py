@@ -27,6 +27,7 @@ from jose import JWTError
 from app.config import get_settings
 from app.core.security import decode_access_token
 from app.core.ws_rate_limit import allow as ws_allow
+from app.dependencies import AUTH_COOKIE_NAME
 from app.sandbox.limits import DEFAULT_TIMEOUT_SECONDS, MAX_CODE_BYTES
 from app.sandbox.subprocess_executor import sandbox_env
 
@@ -95,7 +96,7 @@ except Exception:
 
 @router.websocket("/ws/sandbox/run")
 async def sandbox_run_ws(websocket: WebSocket) -> None:
-    token = websocket.query_params.get("token")
+    token = websocket.cookies.get(AUTH_COOKIE_NAME) or websocket.query_params.get("token")
     if not token:
         await websocket.close(code=4401, reason="Missing token")
         return

@@ -16,7 +16,6 @@ import {
   getMyActivity,
   getMyCosmetics,
   getMyStats,
-  isLoggedIn,
   joinGroup,
   listAllUsers,
   listAssignments,
@@ -417,32 +416,37 @@ export const MentorApp: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      if (isLoggedIn()) {
-        try {
-          const me = await getMe();
-          setUser(me);
-          const [grps, stats, activity, cos] = await Promise.all([
-            listGroups(),
-            getMyStats().catch(() => null),
-            getMyActivity().catch(() => null),
-            getMyCosmetics().catch(() => null),
-          ]);
-          setGroups(grps || []);
-          if (stats) setXp(stats.xp);
-          if (activity) setActivityDays(activity.days);
-          if (cos && typeof cos === "object") setCosmeticsState(cos as any);
-          if (grps && grps.length > 0) {
-            const clsResults = await Promise.all(grps.map((g: any) => listClassrooms(g.id).catch(() => [])));
-            const clsMap: Record<string, any[]> = {};
-            grps.forEach((g: any, idx: number) => { clsMap[g.id] = clsResults[idx] || []; });
-            setGroupClassrooms(clsMap);
-          }
-          setAuthChecked(true);
-        } catch {
-          logout();
-          navigate("/", { replace: true });
+      // With cookie auth there's no client-side token to inspect; the only
+      // way to know if we're logged in is to ask the server. A 401 from
+      // getMe() means the cookie is missing/expired → bounce to landing.
+      try {
+        const me = await getMe();
+        // If the user hasn't picked their role yet, force them through the
+        // welcome screen first. Defense in depth — AuthCallback already
+        // handles the fresh-login path, this catches users who type /app.
+        if (me && me.role_locked === false) {
+          navigate("/welcome/role", { replace: true });
+          return;
         }
-      } else {
+        setUser(me);
+        const [grps, stats, activity, cos] = await Promise.all([
+          listGroups(),
+          getMyStats().catch(() => null),
+          getMyActivity().catch(() => null),
+          getMyCosmetics().catch(() => null),
+        ]);
+        setGroups(grps || []);
+        if (stats) setXp(stats.xp);
+        if (activity) setActivityDays(activity.days);
+        if (cos && typeof cos === "object") setCosmeticsState(cos as any);
+        if (grps && grps.length > 0) {
+          const clsResults = await Promise.all(grps.map((g: any) => listClassrooms(g.id).catch(() => [])));
+          const clsMap: Record<string, any[]> = {};
+          grps.forEach((g: any, idx: number) => { clsMap[g.id] = clsResults[idx] || []; });
+          setGroupClassrooms(clsMap);
+        }
+        setAuthChecked(true);
+      } catch {
         navigate("/", { replace: true });
       }
     };
@@ -463,7 +467,10 @@ export const MentorApp: React.FC = () => {
     return () => clearInterval(id);
   }, [currentAssignment?.id]);
 
-  const handleLogout = () => { logout(); navigate("/", { replace: true }); };
+  const handleLogout = async () => {
+    await logout();
+    navigate("/", { replace: true });
+  };
   const handleCreateGroup = () => setShowCreateGroupModal(true);
 
   const handleCreateGroupConfirm = async (name: string) => {

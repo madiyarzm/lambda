@@ -6,8 +6,9 @@ Classrooms belong to a group. Access is controlled through group membership.
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from app.core.limiter import limiter, user_or_ip
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.classroom import ClassroomCreate, ClassroomRead
 from app.services.classroom_service import (
@@ -45,7 +46,9 @@ def list_classrooms(
 
 
 @router.post("/", response_model=ClassroomRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/hour", key_func=user_or_ip)
 def create_classroom_endpoint(
+    request: Request,
     payload: ClassroomCreate,
     current_user: CurrentUser,
     db: DBSession,

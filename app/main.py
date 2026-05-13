@@ -21,10 +21,18 @@ from app.api.router import api_router
 from app.api import ws_collab, ws_sandbox
 from app.config import get_settings
 from app.core.limiter import limiter
+from app.core.security_middleware import (
+    BodySizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.core.startup_guards import validate_production_settings
 from app.db.init_db import init_db
 from app.db.session import SessionLocal
 from app.services.submission_service import delete_expired_submissions
+
+# 1 MB is enough for code submissions, JSON payloads, and config.
+# Sandbox stdout/stderr are server-generated and don't pass through this limit.
+_MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024
 
 # Frontend directory relative to project root (where main.py's parent's parent is)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
@@ -83,6 +91,15 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Middleware order note: Starlette runs middlewares in reverse of the
+    # order they're added (last added = outermost). We want the body size
+    # check to run before everything else, so it's added last.
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        is_production=(settings.app_env == "production"),
+    )
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=_MAX_REQUEST_BODY_BYTES)
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

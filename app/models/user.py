@@ -8,7 +8,7 @@ join groups and submit (student).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,10 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     picture_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="student")
+    # role_locked is False on a freshly-created account until the user picks
+    # their role on first login. Once True, the role is immutable (admin
+    # endpoint can still override as a break-glass tool).
+    role_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     google_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cosmetics: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
