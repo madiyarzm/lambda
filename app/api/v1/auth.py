@@ -17,7 +17,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 from app.config import Settings, get_settings
 from app.core.auth_google import (
@@ -68,9 +68,12 @@ class DevLoginRequest(BaseModel):
     Role is intentionally not accepted from the client: dev accounts are
     always created as students. Promotion happens via the admin role
     endpoint, which is the same path real users follow.
+
+    ``email`` is plain ``str`` rather than ``EmailStr`` so we avoid pulling
+    in the optional ``email-validator`` package for a dev-only endpoint.
     """
 
-    email: EmailStr
+    email: str = Field(min_length=3, max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     name: str = Field(min_length=1, max_length=255)
 
 logger = logging.getLogger(__name__)
