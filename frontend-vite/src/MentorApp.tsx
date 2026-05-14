@@ -341,7 +341,11 @@ function xpLevel(xp: number): { level: number; title: string; next: number; prev
 
 // ─── App types ─────────────────────────────────────────────────────────────
 
-type View = "dashboard" | "classroom" | "assignment" | "submissions";
+type View = "dashboard" | "classroom" | "assignment" | "submissions" | "workspace";
+
+// Synthetic assignment id for a student's personal scratchpad. It is never
+// persisted — the workspace has no classroom, no collab room, no submissions.
+const WORKSPACE_ID = "__workspace__";
 
 type EditorFile = {
   id: string;
@@ -600,7 +604,23 @@ export const MentorApp: React.FC = () => {
     } catch (e: any) { setError(e.message || t("app.errors.loadSubmissions")); }
   };
 
-  const handleAddFile = () => { if (currentAssignment) setShowAddFileModal(true); };
+  // Open the student's personal workspace — an ephemeral, solo scratchpad.
+  // Seeds a starter file only the first time so navigating away and back
+  // keeps the code for the session (a full refresh clears it, by design).
+  const openWorkspace = () => {
+    setSelectedSubmission(null);
+    setError(null);
+    if (!files.some(f => f.id === "workspace-main")) {
+      const starter = t("app.workspace.starter");
+      const file: EditorFile = { id: "workspace-main", name: "main.py", content: starter };
+      setFiles([file]);
+      setActiveFileId(file.id);
+      setCode(starter);
+    }
+    setView("workspace");
+  };
+
+  const handleAddFile = () => { if (currentAssignment || view === "workspace") setShowAddFileModal(true); };
 
   const handleAddFileConfirm = (name: string) => {
     setShowAddFileModal(false);
@@ -691,10 +711,25 @@ export const MentorApp: React.FC = () => {
     setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, feedback: updated.feedback } : s));
   };
 
-  const roomIdForEditor = currentClassroom && currentAssignment && activeFileId
+  const isWorkspaceView = view === "workspace";
+
+  // In the workspace there is no real assignment row; we hand AssignmentView
+  // a synthetic one. The collab room ids stay undefined so the editor and
+  // canvas run fully local (solo, no WebSocket).
+  const workspaceAssignment = {
+    id: WORKSPACE_ID,
+    title: t("app.workspace.title"),
+    description: null,
+    template_code: null,
+    test_code: null,
+    due_at: null,
+  };
+  const activeAssignment = isWorkspaceView ? workspaceAssignment : currentAssignment;
+
+  const roomIdForEditor = !isWorkspaceView && currentClassroom && currentAssignment && activeFileId
     ? `${currentClassroom.id}:${currentAssignment.id}:${activeFileId}` : undefined;
 
-  const drawingRoomId = currentClassroom && currentAssignment
+  const drawingRoomId = !isWorkspaceView && currentClassroom && currentAssignment
     ? `drawing:${currentClassroom.id}:${currentAssignment.id}` : undefined;
 
   if (!authChecked) {
@@ -719,12 +754,14 @@ export const MentorApp: React.FC = () => {
   ];
   const studentNav = [
     { id: "dashboard" as View, label: t("app.nav.dashboard"), icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { id: "workspace" as View, label: t("app.nav.workspace"), icon: "M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 3h16" },
     { id: "classroom" as View, label: t("app.nav.classroom"), icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
     { id: "assignment" as View, label: t("app.nav.editor"), icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" },
   ];
   const navItems = effectiveRole === "teacher" ? teacherNav : studentNav;
   // classroom nav item links to classroom view only if a classroom is selected
   const handleNavClick = (id: View) => {
+    if (id === "workspace") { openWorkspace(); return; }
     if (id === "classroom" && !currentClassroom) return;
     if (id === "assignment" && !currentAssignment) return;
     if (id === "submissions" && !currentClassroom) return;
@@ -964,6 +1001,7 @@ export const MentorApp: React.FC = () => {
               activityDays={activityDays}
               onCreateGroup={handleCreateGroup}
               onJoinGroup={handleJoinGroup}
+              onOpenWorkspace={openWorkspace}
               groupClassrooms={groupClassrooms}
               onOpenClassroom={openClassroom}
               cosmetics={cosmetics}
@@ -998,9 +1036,10 @@ export const MentorApp: React.FC = () => {
               onSaveFeedback={handleSaveFeedback}
             />
           )}
-          {view === "assignment" && currentAssignment && (
+          {(view === "assignment" || view === "workspace") && activeAssignment && (
             <AssignmentView
-              assignment={currentAssignment}
+              assignment={activeAssignment}
+              isWorkspace={isWorkspaceView}
               code={code}
               setCode={handleCodeChange}
               roomId={roomIdForEditor}
@@ -1018,7 +1057,7 @@ export const MentorApp: React.FC = () => {
               onSelectSubmission={setSelectedSubmission}
               loading={loading}
               onSubmit={handleSubmit}
-              onBack={() => setView("classroom")}
+              onBack={() => setView(isWorkspaceView ? "dashboard" : "classroom")}
               onSaveFeedback={handleSaveFeedback}
               failedAttempts={failedAttempts}
               hint={hint}
@@ -1163,11 +1202,12 @@ interface DashboardViewProps {
   onCreateGroup: () => void;
   onJoinGroup: () => void;
   onOpenClassroom: (c: any) => void;
+  onOpenWorkspace: () => void;
   cosmetics: { frame?: string; background?: string; aura?: string };
   onSaveCosmetics: (next: { frame?: string; background?: string; aura?: string }) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, cosmetics, onSaveCosmetics }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, onOpenWorkspace, cosmetics, onSaveCosmetics }) => {
   const { t } = useTranslation();
   // derive flat classroom list for teacher
   const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code })));
@@ -1315,7 +1355,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
           </div>
           <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{t("app.dashboard.student.emptyTitle")}</h2>
           <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>{t("app.dashboard.student.emptyBody")}</p>
-          <button onClick={onJoinGroup} style={{ padding: "10px 24px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("app.dashboard.student.emptyButton")}</button>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <button onClick={onJoinGroup} style={{ padding: "10px 24px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("app.dashboard.student.emptyButton")}</button>
+            <button onClick={onOpenWorkspace} style={{ padding: "10px 24px", background: "transparent", color: "var(--indigo)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("app.workspace.open")}</button>
+          </div>
         </div>
       </div>
     );
@@ -1495,6 +1538,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
           <div>
             <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t("app.dashboard.student.myClassrooms")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                onClick={onOpenWorkspace}
+                style={{ background: "var(--indigo-muted)", border: "1px solid oklch(55% 0.22 264 / 0.35)", borderRadius: "var(--r)", padding: "12px 14px", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+              >
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--indigo)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 3h16" />
+                  </svg>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{t("app.workspace.cardTitle")}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>{t("app.workspace.cardBody")}</div>
+                </div>
+              </button>
               {allClassrooms.map((c: any) => (
                 <button
                   key={c.id}
@@ -2118,6 +2175,7 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
 
 interface AssignmentViewProps {
   assignment: any;
+  isWorkspace?: boolean;
   code: string;
   setCode: (c: string) => void;
   roomId?: string;
@@ -2148,7 +2206,7 @@ interface AssignmentViewProps {
 type StreamLine = { id: number; text: string; type: "stdout" | "stderr" | "info" };
 
 const AssignmentView: React.FC<AssignmentViewProps> = ({
-  assignment, code, setCode, roomId, drawingRoomId,
+  assignment, isWorkspace = false, code, setCode, roomId, drawingRoomId,
   userName, userRole, userId, groupMembers, files, activeFileId,
   onSelectFile, onAddFile,
   submissions, selectedSubmission, onSelectSubmission, loading,
@@ -2505,19 +2563,21 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     {t("app.assignment.run")}
                   </button>
                 )}
-                <button
-                  onClick={() => onSubmit([])}
-                  disabled={loading}
-                  className="px-3 py-1.5 text-xs rounded-[10px] border font-medium disabled:opacity-60 transition-colors"
-                  style={{
-                    borderColor: isHomework ? "oklch(55% 0.22 264 / 0.4)" : "var(--border)",
-                    background: isHomework ? "var(--indigo-muted)" : "transparent",
-                    color: isHomework ? "var(--indigo)" : "var(--muted)",
-                  }}
-                >
-                  {isHomework ? t("app.assignment.submitHomework") : t("app.assignment.submit")}
-                </button>
-                {userRole === "student" && (
+                {!isWorkspace && (
+                  <button
+                    onClick={() => onSubmit([])}
+                    disabled={loading}
+                    className="px-3 py-1.5 text-xs rounded-[10px] border font-medium disabled:opacity-60 transition-colors"
+                    style={{
+                      borderColor: isHomework ? "oklch(55% 0.22 264 / 0.4)" : "var(--border)",
+                      background: isHomework ? "var(--indigo-muted)" : "transparent",
+                      color: isHomework ? "var(--indigo)" : "var(--muted)",
+                    }}
+                  >
+                    {isHomework ? t("app.assignment.submitHomework") : t("app.assignment.submit")}
+                  </button>
+                )}
+                {userRole === "student" && !isWorkspace && (
                   <button
                     type="button"
                     onClick={() => setHandRaised(v => !v)}
@@ -2666,6 +2726,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
         </div>
 
         {/* ── Right panel: submissions / roster ───────────────────────── */}
+        {/* Hidden in the personal workspace — nothing is submitted there. */}
+        {!isWorkspace && (
         <div
           className="flex flex-col shrink-0 border-l transition-all duration-200"
           style={{
@@ -2799,6 +2861,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             </button>
           )}
         </div>
+        )}
 
       </div>
 

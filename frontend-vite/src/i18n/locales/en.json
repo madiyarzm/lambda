@@ -157,7 +157,15 @@
       "dashboard": "Dashboard",
       "classroom": "Classroom",
       "submissions": "Submissions",
-      "editor": "Editor"
+      "editor": "Editor",
+      "workspace": "Workspace"
+    },
+    "workspace": {
+      "title": "Workspace",
+      "cardTitle": "Personal Workspace",
+      "cardBody": "Your own space to write code and sketch ideas — no group needed.",
+      "open": "Open Workspace",
+      "starter": "# Your personal workspace — write and run Python freely.\n# Nothing here is graded or saved.\n\n"
     },
     "sidebar": {
       "classrooms": "Classrooms",
