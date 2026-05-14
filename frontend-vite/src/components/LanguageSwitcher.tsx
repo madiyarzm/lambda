@@ -5,11 +5,14 @@ import { SUPPORTED_LANGUAGES } from "../i18n";
 /**
  * Compact EN / RU / KK segmented control.
  *
- * The landing page is light and the app is dark, so the switcher takes a
- * `variant` prop and picks a palette accordingly. `dark` uses the app's CSS
- * variables; `light` uses the landing page's Apple-style palette.
+ * Takes a `variant` so it stays legible on different surfaces:
+ *  - `light` — the landing page's white glass nav (tinted track so the pill
+ *    is distinguishable instead of blending into the white bar).
+ *  - `dark`  — the app's dark sidebar / headers (uses theme CSS vars).
+ *  - `glass` — on top of a coloured background (e.g. the student profile
+ *    hero), matching the translucent "glass on colour" button style.
  */
-type Variant = "light" | "dark";
+type Variant = "light" | "dark" | "glass";
 
 interface LanguageSwitcherProps {
   variant?: Variant;
@@ -21,10 +24,10 @@ const PALETTE: Record<
   { track: string; border: string; idle: string; activeBg: string; activeText: string }
 > = {
   light: {
-    track: "rgba(255,255,255,0.6)",
-    border: "var(--apple-line, rgba(0,0,0,0.08))",
-    idle: "var(--apple-ink-3, #6b7280)",
-    activeBg: "var(--apple-ink, #1f2937)",
+    track: "rgba(15,23,42,0.05)",
+    border: "rgba(15,23,42,0.12)",
+    idle: "#52525B",
+    activeBg: "#0A0A0B",
     activeText: "#ffffff",
   },
   dark: {
@@ -33,6 +36,13 @@ const PALETTE: Record<
     idle: "var(--text-3)",
     activeBg: "var(--bg)",
     activeText: "var(--text)",
+  },
+  glass: {
+    track: "rgba(255,255,255,0.15)",
+    border: "rgba(255,255,255,0.3)",
+    idle: "rgba(255,255,255,0.75)",
+    activeBg: "rgba(255,255,255,0.92)",
+    activeText: "#1f2937",
   },
 };
 
@@ -77,7 +87,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
               lineHeight: 1.4,
               background: active ? p.activeBg : "transparent",
               color: active ? p.activeText : p.idle,
-              boxShadow: active && variant === "dark" ? "0 1px 4px rgba(0,0,0,0.12)" : "none",
+              boxShadow: active && variant !== "glass" ? "0 1px 4px rgba(0,0,0,0.12)" : "none",
               transition: "background 120ms, color 120ms",
             }}
           >

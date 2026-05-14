@@ -100,13 +100,13 @@ const Nav: React.FC<{ onSignIn: () => void }> = ({ onSignIn }) => {
         <div className="pl-2 pr-3">
           <StrawieLogoSvg size={26} />
         </div>
-        <div className="hidden md:flex items-center gap-1 text-[13px] text-apple-ink-3 font-medium">
+        <div className="hidden lg:flex items-center gap-1 text-[13px] text-apple-ink-3 font-medium">
           <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#editor">{t("landing.nav.editor")}</a>
           <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#features">{t("landing.nav.features")}</a>
           <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#teachers">{t("landing.nav.teachers")}</a>
           <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#students">{t("landing.nav.students")}</a>
         </div>
-        <LanguageSwitcher variant="light" />
+        <LanguageSwitcher variant="light" className="shrink-0" />
         <button
           onClick={onSignIn}
           className="px-3 py-1.5 text-[13px] font-medium text-apple-ink-2 hover:text-apple-ink rounded-full transition"

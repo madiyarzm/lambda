@@ -1200,9 +1200,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
     return (
       <div style={{ flex: 1, overflowY: "auto", background: "var(--bg-2)" }}>
         {/* Header */}
-        <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "24px 32px 20px" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{user?.name ? t("app.dashboard.teacher.welcomeBackNamed", { name: user.name.split(" ")[0] }) : t("app.dashboard.teacher.welcomeBack")}</h1>
-          <p style={{ fontSize: 13, color: "var(--text-3)" }}>{t("app.dashboard.teacher.welcomeSub")}</p>
+        <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "24px 32px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{user?.name ? t("app.dashboard.teacher.welcomeBackNamed", { name: user.name.split(" ")[0] }) : t("app.dashboard.teacher.welcomeBack")}</h1>
+            <p style={{ fontSize: 13, color: "var(--text-3)" }}>{t("app.dashboard.teacher.welcomeSub")}</p>
+          </div>
+          <LanguageSwitcher variant="dark" />
         </div>
 
         <div style={{ padding: "24px 32px" }}>
@@ -1358,12 +1361,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", fontFamily: "DM Mono, monospace" }}>{xpPct}%</span>
             </div>
           </div>
-          <button
-            onClick={() => setShopOpen(o => !o)}
-            style={{ padding: "8px 16px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "var(--r)", fontSize: 12, fontWeight: 600, color: "#fff", cursor: "pointer", backdropFilter: "blur(4px)" }}
-          >
-            {shopOpen ? t("app.dashboard.student.closeShop") : t("app.dashboard.student.customize")}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <LanguageSwitcher variant="glass" />
+            <button
+              onClick={() => setShopOpen(o => !o)}
+              style={{ padding: "8px 16px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "var(--r)", fontSize: 12, fontWeight: 600, color: "#fff", cursor: "pointer", backdropFilter: "blur(4px)" }}
+            >
+              {shopOpen ? t("app.dashboard.student.closeShop") : t("app.dashboard.student.customize")}
+            </button>
+          </div>
         </div>
       </div>
 
