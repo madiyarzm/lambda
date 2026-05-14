@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 
 interface SimpleInputModalProps {
@@ -14,10 +15,11 @@ export const SimpleInputModal: React.FC<SimpleInputModalProps> = ({
   title,
   placeholder = "",
   defaultValue = "",
-  confirmLabel = "Confirm",
+  confirmLabel,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,14 +68,14 @@ export const SimpleInputModal: React.FC<SimpleInputModalProps> = ({
               onClick={onCancel}
               className="px-3 py-1.5 text-xs border border-slate-700 rounded-md bg-transparent text-slate-300 hover:bg-slate-800 transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               disabled={!value.trim()}
               className="px-4 py-1.5 text-xs rounded-md font-medium bg-sky-500 text-slate-950 hover:bg-sky-400 disabled:opacity-50 transition-colors"
             >
-              {confirmLabel}
+              {confirmLabel ?? t("common.save")}
             </button>
           </div>
         </form>

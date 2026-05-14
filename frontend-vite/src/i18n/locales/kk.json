@@ -1,0 +1,3 @@
+{
+  "_comment": "Kazakh placeholder — selectable in the language switcher but intentionally empty. Every key falls back to English (fallbackLng) until translations are added here. Mirror the structure of en.json when filling this in."
+}

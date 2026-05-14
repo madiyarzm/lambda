@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { chooseRole, getMe } from "./lib/api";
 
 /**
@@ -12,6 +13,7 @@ import { chooseRole, getMe } from "./lib/api";
  */
 export const RolePickPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [name, setName] = useState<string>("");
   const [submitting, setSubmitting] = useState<"teacher" | "student" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export const RolePickPage: React.FC = () => {
       await chooseRole(role);
       navigate("/app", { replace: true });
     } catch {
-      setError("Could not save your choice. Please try again.");
+      setError(t("auth.rolePick.error"));
       setSubmitting(null);
     }
   };
@@ -54,10 +56,10 @@ export const RolePickPage: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center px-6 py-12">
       <div className="max-w-2xl w-full text-center mb-10">
         <h1 className="text-3xl font-semibold mb-3">
-          Welcome{name ? `, ${name}` : ""}.
+          {name ? t("auth.rolePick.welcomeNamed", { name }) : t("auth.rolePick.welcome")}
         </h1>
         <p className="text-slate-400 text-base">
-          Pick how you'll use Lambda. This choice is permanent.
+          {t("auth.rolePick.subtitle")}
         </p>
       </div>
 
@@ -67,13 +69,12 @@ export const RolePickPage: React.FC = () => {
           disabled={submitting !== null}
           className="text-left p-6 rounded-2xl border border-slate-800 bg-slate-900 hover:border-sky-500 hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <div className="text-lg font-semibold mb-2">I'm a teacher</div>
+          <div className="text-lg font-semibold mb-2">{t("auth.rolePick.teacherTitle")}</div>
           <div className="text-sm text-slate-400">
-            Create your own groups, classrooms, and assignments. Invite students
-            with a code. You manage your own bubble — no other teachers see it.
+            {t("auth.rolePick.teacherDesc")}
           </div>
           {submitting === "teacher" && (
-            <div className="mt-3 text-xs text-sky-400">Setting up…</div>
+            <div className="mt-3 text-xs text-sky-400">{t("auth.rolePick.settingUp")}</div>
           )}
         </button>
 
@@ -82,13 +83,12 @@ export const RolePickPage: React.FC = () => {
           disabled={submitting !== null}
           className="text-left p-6 rounded-2xl border border-slate-800 bg-slate-900 hover:border-emerald-500 hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <div className="text-lg font-semibold mb-2">I'm a student</div>
+          <div className="text-lg font-semibold mb-2">{t("auth.rolePick.studentTitle")}</div>
           <div className="text-sm text-slate-400">
-            Join a teacher's group with an invite code, submit code, earn XP,
-            and get AI hints when you're stuck.
+            {t("auth.rolePick.studentDesc")}
           </div>
           {submitting === "student" && (
-            <div className="mt-3 text-xs text-emerald-400">Setting up…</div>
+            <div className="mt-3 text-xs text-emerald-400">{t("auth.rolePick.settingUp")}</div>
           )}
         </button>
       </div>
@@ -98,8 +98,7 @@ export const RolePickPage: React.FC = () => {
       )}
 
       <div className="mt-10 text-xs text-slate-500 max-w-xl text-center">
-        Picked wrong? Contact us — only an admin can change a role after this
-        screen.
+        {t("auth.rolePick.footnote")}
       </div>
     </div>
   );

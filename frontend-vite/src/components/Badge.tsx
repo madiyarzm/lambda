@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 type BadgeType =
   | "success"
   | "failed"
@@ -10,17 +12,17 @@ type BadgeType =
   | "not-started"
   | "default";
 
-const BADGE_STYLES: Record<BadgeType, { bg: string; color: string; dot: string; label: string }> = {
-  success:     { bg: "var(--mint-muted)",   color: "var(--mint)",   dot: "var(--mint)",   label: "Accepted" },
-  failed:      { bg: "var(--rose-muted)",   color: "var(--rose)",   dot: "var(--rose)",   label: "Failed" },
-  timeout:     { bg: "var(--amber-muted)",  color: "var(--amber)",  dot: "var(--amber)",  label: "Timeout" },
-  open:        { bg: "var(--mint-muted)",   color: "var(--mint)",   dot: "var(--mint)",   label: "Open" },
-  closed:      { bg: "var(--bg-3)",         color: "var(--muted)",  dot: "var(--subtle)", label: "Closed" },
-  live:        { bg: "var(--rose-muted)",   color: "var(--rose)",   dot: "var(--rose)",   label: "Live" },
-  "in-progress":{ bg: "var(--indigo-muted)", color: "var(--indigo)", dot: "var(--indigo)", label: "In Progress" },
-  submitted:   { bg: "var(--mint-muted)",   color: "var(--mint)",   dot: "var(--mint)",   label: "Submitted" },
-  "not-started":{ bg: "var(--bg-3)",        color: "var(--muted)",  dot: "var(--subtle)", label: "Not Started" },
-  default:     { bg: "var(--bg-3)",         color: "var(--muted)",  dot: "var(--subtle)", label: "" },
+const BADGE_STYLES: Record<BadgeType, { bg: string; color: string; dot: string }> = {
+  success:     { bg: "var(--mint-muted)",   color: "var(--mint)",   dot: "var(--mint)" },
+  failed:      { bg: "var(--rose-muted)",   color: "var(--rose)",   dot: "var(--rose)" },
+  timeout:     { bg: "var(--amber-muted)",  color: "var(--amber)",  dot: "var(--amber)" },
+  open:        { bg: "var(--mint-muted)",   color: "var(--mint)",   dot: "var(--mint)" },
+  closed:      { bg: "var(--bg-3)",         color: "var(--muted)",  dot: "var(--subtle)" },
+  live:        { bg: "var(--rose-muted)",   color: "var(--rose)",   dot: "var(--rose)" },
+  "in-progress":{ bg: "var(--indigo-muted)", color: "var(--indigo)", dot: "var(--indigo)" },
+  submitted:   { bg: "var(--mint-muted)",   color: "var(--mint)",   dot: "var(--mint)" },
+  "not-started":{ bg: "var(--bg-3)",        color: "var(--muted)",  dot: "var(--subtle)" },
+  default:     { bg: "var(--bg-3)",         color: "var(--muted)",  dot: "var(--subtle)" },
 };
 
 interface BadgeProps {
@@ -30,8 +32,9 @@ interface BadgeProps {
 }
 
 export function Badge({ type = "default", label, pulse = false }: BadgeProps) {
+  const { t } = useTranslation();
   const s = BADGE_STYLES[type];
-  const text = label ?? s.label;
+  const text = label ?? (type === "default" ? "" : t(`badge.${type}`));
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold"

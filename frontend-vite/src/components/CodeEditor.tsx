@@ -5,6 +5,8 @@
  */
 
 import React, { useMemo, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import CodeMirror from "@uiw/react-codemirror";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { Decoration, EditorView } from "@codemirror/view";
@@ -58,13 +60,13 @@ const errorLineField = StateField.define<DecorationSet>({
   provide: f => EditorView.decorations.from(f),
 });
 
-const PYTHON_SNIPPETS = [
-  { label: "print", type: "function", apply: "print()", detail: "Built-in function", info: "Prints the given values to standard output." },
-  { label: "range", type: "function", apply: "range()", detail: "Built-in function", info: "Creates an arithmetic progression of integers." },
-  { label: "len", type: "function", apply: "len()", detail: "Built-in function", info: "Returns the length of a sequence or collection." },
-  { label: "def", type: "keyword", apply: "def ", detail: "Keyword", info: "Defines a new function: def name(args):" },
-  { label: "for", type: "keyword", apply: "for ", detail: "Keyword", info: "Loop keyword: for item in iterable:" },
-  { label: "if", type: "keyword", apply: "if ", detail: "Keyword", info: "Conditional branch: if condition:" },
+const pythonSnippets = (t: TFunction) => [
+  { label: "print", type: "function", apply: "print()", detail: t("editor.builtinFunction"), info: t("editor.printInfo") },
+  { label: "range", type: "function", apply: "range()", detail: t("editor.builtinFunction"), info: t("editor.rangeInfo") },
+  { label: "len", type: "function", apply: "len()", detail: t("editor.builtinFunction"), info: t("editor.lenInfo") },
+  { label: "def", type: "keyword", apply: "def ", detail: t("editor.keyword"), info: t("editor.defInfo") },
+  { label: "for", type: "keyword", apply: "for ", detail: t("editor.keyword"), info: t("editor.forInfo") },
+  { label: "if", type: "keyword", apply: "if ", detail: t("editor.keyword"), info: t("editor.ifInfo") },
 ];
 
 const strawieEditorTheme = EditorView.theme({
@@ -146,6 +148,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onPeersChange,
   errorLines,
 }) => {
+  const { t } = useTranslation();
   const ydocRef = useRef<Y.Doc | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   if (!ydocRef.current) {
@@ -189,14 +192,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       bracketMatching(),
       closeBrackets(),
       autocompletion({
-        override: [completeFromList(PYTHON_SNIPPETS)],
+        override: [completeFromList(pythonSnippets(t))],
         activateOnTyping: true,
       }),
       yCollab(ytext, awareness ?? undefined),
       errorLineField,
       ...strawieTheme,
     ],
-    [ytext, awareness],
+    [ytext, awareness, t],
   );
 
   return (
@@ -213,7 +216,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               style={{ backgroundColor: p.color }}
             />
             {p.name}
-            {p.handRaised && <span title="Hand raised">✋</span>}
+            {p.handRaised && <span title={t("editor.handRaised")}>✋</span>}
           </span>
         ))}
       </div>

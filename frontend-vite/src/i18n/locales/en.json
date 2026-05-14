@@ -1,0 +1,492 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading…",
+    "join": "Join",
+    "back": "Back",
+    "close": "Close",
+    "delete": "Delete",
+    "student": "Student",
+    "teacher": "Teacher",
+    "students": "Students",
+    "teachers": "Teachers"
+  },
+  "lang": {
+    "label": "Language",
+    "english": "English",
+    "russian": "Русский",
+    "kazakh": "Қазақша"
+  },
+  "landing": {
+    "nav": {
+      "editor": "Editor",
+      "features": "Features",
+      "teachers": "Teachers",
+      "students": "Students",
+      "signIn": "Sign in",
+      "open": "Open Strawie"
+    },
+    "hero": {
+      "badge": "For computer-science classrooms",
+      "title": "Teach Python the way <grad>you'd teach it</grad> in person.",
+      "subtitle": "Strawie is a browser-based Python editor where teachers and students work in the same file, live. No installs, no setup.",
+      "ctaPrimary": "Start a classroom",
+      "ctaSecondary": "Join with a code"
+    },
+    "showcase": {
+      "eyebrow": "Live collaboration",
+      "title": "Three cursors. One file. Zero conflicts.",
+      "subtitle": "Edits sync via Yjs CRDT — the algorithm that lets ten students type in the same file simultaneously without overwriting each other. Cursors carry names. Selections stay visible.",
+      "live": "{{count}} live",
+      "output": "Output"
+    },
+    "features": {
+      "eyebrow": "Features",
+      "title": "Everything a classroom needs.",
+      "subtitle": "Built-in, not bolted on. Strawie ships with everything a classroom needs — editor, runner, grader, and hints — no integrations required.",
+      "liveEditing": {
+        "tag": "Live editing",
+        "title": "See every keystroke.",
+        "body": "CodeMirror under the hood, Yjs for sync. Cursors carry names, selections highlight live, and the file stays consistent even when ten students edit at once."
+      },
+      "aiHints": {
+        "tag": "AI hints",
+        "title": "Stuck? Spend a few XP.",
+        "bubble": "Try printing <code>name</code> first to see what's inside."
+      },
+      "autoGrading": {
+        "tag": "Auto-grading",
+        "title": "Tests run on submit.",
+        "passed": "passed"
+      },
+      "invite": {
+        "tag": "Invite",
+        "title": "One link, six characters."
+      },
+      "sandbox": {
+        "tag": "Sandbox",
+        "title": "Code runs, isolated."
+      },
+      "drawing": {
+        "tag": "Drawing",
+        "title": "Diagram together.",
+        "body": "Miro-style canvas, real-time. Sketch diagrams while you code."
+      },
+      "streaks": {
+        "tag": "Streaks & XP",
+        "title": "Effort visible from a glance."
+      },
+      "achievements": {
+        "tag": "Achievements",
+        "title": "Earn as you learn.",
+        "streak": "7-day streak",
+        "firstSolve": "First solve",
+        "topScorer": "Top scorer",
+        "hundredXp": "100 XP",
+        "hintMaster": "Hint master",
+        "perfectRun": "Perfect run"
+      }
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "title": "Setup is one link.",
+      "step1Title": "Create a classroom",
+      "step1Desc": "Sign in with Google. Name your group. Done.",
+      "step2Title": "Share the code",
+      "step2Desc": "Send a 6-character invite to your students.",
+      "step3Title": "Code together",
+      "step3Desc": "Open the same file. Cursors and edits sync live.",
+      "step4Title": "Submit & review",
+      "step4Desc": "Tests run automatically. Leave feedback inline."
+    },
+    "roles": {
+      "eyebrow": "Two views",
+      "title": "Different views of the same room.",
+      "forTeachers": "For Teachers",
+      "forStudents": "For Students",
+      "teacherHeading": "Lead the room.",
+      "studentHeading": "Learn out loud.",
+      "openAsTeacher": "Open Strawie as teacher",
+      "openAsStudent": "Open Strawie as student",
+      "teacherBullet1": "Create classrooms with invite codes",
+      "teacherBullet2": "Watch every student's editor live",
+      "teacherBullet3": "Set assignments with template & test code",
+      "teacherBullet4": "Auto-grade against your own tests",
+      "teacherBullet5": "Drop into any student's file to leave a cursor",
+      "studentBullet1": "Join a class with a code — no setup",
+      "studentBullet2": "Edit code with classmates in the same file",
+      "studentBullet3": "Submit once — see test results immediately",
+      "studentBullet4": "Earn XP, build a streak, customize a profile",
+      "studentBullet5": "Spend XP for an AI hint when stuck"
+    },
+    "cta": {
+      "title": "Open the room.",
+      "subtitle": "Free while we're in beta. Sign in with a Google account — that's all it takes.",
+      "button": "Open Strawie"
+    },
+    "footer": {
+      "copyright": "© Strawie · 2026"
+    }
+  },
+  "auth": {
+    "callback": {
+      "signingIn": "Signing you in…",
+      "backHome": "Back to home",
+      "state_mismatch": "Login was cancelled or expired. Please try again.",
+      "token_exchange_failed": "Google didn't return a usable token. Please try again.",
+      "email_not_verified": "Your Google email isn't verified. Verify it with Google, then try again.",
+      "account_conflict": "An account with this email already exists. Please contact support.",
+      "auth_failed": "Authentication failed. Please try again."
+    },
+    "rolePick": {
+      "welcome": "Welcome.",
+      "welcomeNamed": "Welcome, {{name}}.",
+      "subtitle": "Pick how you'll use Lambda. This choice is permanent.",
+      "teacherTitle": "I'm a teacher",
+      "teacherDesc": "Create your own groups, classrooms, and assignments. Invite students with a code. You manage your own bubble — no other teachers see it.",
+      "studentTitle": "I'm a student",
+      "studentDesc": "Join a teacher's group with an invite code, submit code, earn XP, and get AI hints when you're stuck.",
+      "settingUp": "Setting up…",
+      "error": "Could not save your choice. Please try again.",
+      "footnote": "Picked wrong? Contact us — only an admin can change a role after this screen."
+    }
+  },
+  "app": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "classroom": "Classroom",
+      "submissions": "Submissions",
+      "editor": "Editor"
+    },
+    "sidebar": {
+      "classrooms": "Classrooms",
+      "noClassrooms": "No classrooms",
+      "newClassroom": "+ New Classroom",
+      "join": "Join",
+      "newGroup": "+ Group",
+      "viewAs": "View as",
+      "toggleTheme": "Toggle theme",
+      "expandSidebar": "Expand sidebar",
+      "collapseSidebar": "Collapse sidebar",
+      "deleteGroup": "Delete group",
+      "deleteClassroom": "Delete classroom",
+      "users": "Users",
+      "logout": "Logout"
+    },
+    "errors": {
+      "createGroup": "Failed to create group.",
+      "joinGroup": "Failed to join group.",
+      "loadClassrooms": "Failed to load classrooms.",
+      "createClassroom": "Failed to create classroom.",
+      "deleteGroup": "Failed to delete group.",
+      "deleteClassroom": "Failed to delete classroom.",
+      "loadAssignments": "Failed to load assignments.",
+      "createAssignment": "Failed to create assignment.",
+      "loadSubmissions": "Failed to load submissions.",
+      "loadUsers": "Failed to load users.",
+      "updateRole": "Failed to update role.",
+      "submit": "Failed to submit."
+    },
+    "confirm": {
+      "deleteGroup": "Delete group \"{{name}}\"? This will remove all classrooms and data inside it.",
+      "deleteClassroom": "Delete classroom \"{{name}}\"? All assignments and submissions inside will be removed."
+    },
+    "modals": {
+      "newGroupTitle": "New Group",
+      "newGroupPlaceholder": "e.g. Python Basics — Spring 2026",
+      "newGroupConfirm": "Create Group",
+      "joinGroupTitle": "Join Group",
+      "joinGroupPlaceholder": "Enter invite code",
+      "joinGroupConfirm": "Join",
+      "newClassroomTitle": "New Classroom",
+      "newClassroomPlaceholder": "e.g. Introduction to OOP",
+      "newClassroomConfirm": "Create Classroom",
+      "newFileTitle": "New File",
+      "newFilePlaceholder": "filename.py",
+      "newFileConfirm": "Add File"
+    },
+    "admin": {
+      "title": "User Management",
+      "loadingUsers": "Loading users…",
+      "toStudent": "→ Student",
+      "toTeacher": "→ Teacher",
+      "noUsers": "No users found."
+    },
+    "createAssignment": {
+      "title": "New Assignment",
+      "type": "Type",
+      "exerciseTitle": "In-class Exercise",
+      "exerciseDesc": "Live coding session, no deadline",
+      "homeworkTitle": "Homework",
+      "homeworkDesc": "Completed outside class, with deadline",
+      "due": "Due:",
+      "titleLabel": "Title",
+      "titlePlaceholder": "e.g. Variables & Data Types",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "Describe what students should do…",
+      "starterCode": "Starter Code",
+      "autoGradingTests": "Auto-Grading Tests",
+      "autoGradingDesc": "Runs after submission — students see pass/fail.",
+      "createHomework": "Create Homework",
+      "createExercise": "Create Exercise"
+    },
+    "deadline": {
+      "overdue": "⚠ OVERDUE",
+      "due": "Due {{date}}",
+      "overdueShort": "OVERDUE",
+      "hoursRemaining": "{{count}}h remaining",
+      "daysRemaining_one": "{{count}} day remaining",
+      "daysRemaining_other": "{{count}} days remaining"
+    },
+    "dashboard": {
+      "teacher": {
+        "statClassrooms": "Classrooms",
+        "statTotalStudents": "Total students",
+        "statLiveNow": "Live right now",
+        "statPendingReviews": "Pending reviews",
+        "live": "LIVE",
+        "emptyTitle": "Create your first group",
+        "emptyBody": "Groups hold your classrooms and students. Create one and share the invite code.",
+        "emptyButton": "+ Create Group",
+        "welcomeBack": "Welcome back 👋",
+        "welcomeBackNamed": "Welcome back, {{name}} 👋",
+        "welcomeSub": "Here's what's happening in your classrooms today.",
+        "classrooms": "Classrooms",
+        "new": "+ New",
+        "noClassrooms": "No classrooms yet. Create a group and add classrooms from the sidebar.",
+        "studentsCount": "{{count}} students",
+        "submissions": "Submissions",
+        "liveCount": "{{count}} live"
+      },
+      "student": {
+        "statTotalXp": "Total XP",
+        "statTotalXpSub": "points",
+        "statLevel": "Level",
+        "statStreak": "Streak",
+        "statStreakSub": "days",
+        "statClassrooms": "Classrooms",
+        "statClassroomsSub": "joined",
+        "emptyTitle": "Join a group to get started",
+        "emptyBody": "Ask your teacher for an invite code to join a group.",
+        "emptyButton": "Join with Code",
+        "fallbackName": "Student",
+        "xpLine": "{{title}} · {{xp}} XP",
+        "closeShop": "Close Shop",
+        "customize": "Customize",
+        "shopFrame": "Avatar Frame",
+        "shopBackground": "Background",
+        "shopAura": "Avatar Aura",
+        "locked": "Locked — need {{cost}} XP",
+        "achievements": "Achievements",
+        "activity": "Activity",
+        "myClassrooms": "My Classrooms",
+        "noClassrooms": "No classrooms yet.",
+        "joinOne": "Join one →"
+      }
+    },
+    "classroom": {
+      "breadcrumbDashboard": "Dashboard",
+      "breadcrumbClassrooms": "Classrooms",
+      "tabAssignments": "assignments",
+      "tabStudents": "students",
+      "invite": "Invite: {{code}}",
+      "liveNow": "{{count}} live now",
+      "deleteClassroom": "Delete classroom",
+      "newAssignment": "+ New Assignment",
+      "hw": "HW",
+      "submittedCount": "{{count}} submitted",
+      "submittedLate": "Submitted Late",
+      "submitted": "Submitted ✓",
+      "notStarted": "Not started",
+      "noAssignments": "No assignments yet.",
+      "noAssignmentsHint": " Click \"+ New Assignment\" to create the first one.",
+      "studentsEnrolled_one": "{{count}} student enrolled",
+      "studentsEnrolled_other": "{{count}} students enrolled",
+      "noStudents": "No students enrolled yet.",
+      "live": "Live",
+      "offline": "Offline"
+    },
+    "submissionDetail": {
+      "fallbackTitle": "Submission",
+      "openInEditor": "Open in Editor",
+      "exit": "exit:",
+      "timedOut": "⏱ timed out",
+      "testsPassed": "✓ tests passed",
+      "testsFailed": "✗ tests failed",
+      "noTests": "no tests configured",
+      "id": "id:",
+      "code": "Code",
+      "noCode": "(no code)",
+      "stdout": "stdout",
+      "stderr": "stderr / error",
+      "autoGraderOutput": "Auto-grader output",
+      "feedbackTeacher": "Mentor feedback",
+      "feedbackStudent": "Feedback from your mentor",
+      "feedbackPlaceholder": "Leave feedback for this submission…",
+      "saving": "Saving…",
+      "saveFeedback": "Save feedback",
+      "noFeedback": "No feedback yet."
+    },
+    "submissions": {
+      "breadcrumbDashboard": "Dashboard",
+      "breadcrumbSubmissions": "Submissions",
+      "title": "Submissions",
+      "statusCount": "{{count}} {{status}}",
+      "statusSuccess": "success",
+      "statusError": "error",
+      "statusTimeout": "timeout",
+      "all": "All",
+      "studentsCount_one": "{{count}} student",
+      "studentsCount_other": "{{count}} students",
+      "noSubmissions": "No submissions yet.",
+      "attempts_one": "{{count}} attempt",
+      "attempts_other": "{{count}} attempts",
+      "selectStudent": "Select a student to view their log",
+      "attemptsLabel": "attempts",
+      "solvedLabel": "solved",
+      "unknownAssignment": "Unknown assignment"
+    },
+    "assignment": {
+      "back": "← Back",
+      "xp": "{{xp}} XP",
+      "homeworkBanner": "📋 Homework — Due {{date}} · {{remaining}}",
+      "submittedRatio": "{{submitted}}/{{total}} submitted",
+      "submittedRatioUnknown": "{{submitted}}/? submitted",
+      "overdue": "⚠ This assignment is overdue",
+      "dueLine": "Due: {{date}} — {{remaining}}",
+      "submittedAt": "Submitted {{date}}",
+      "late": " (Late)",
+      "onTime": " ✓",
+      "modeCode": "code",
+      "modeDraw": "draw",
+      "stop": "Stop",
+      "run": "Run",
+      "submitHomework": "Submit Homework",
+      "submit": "Submit",
+      "inputs": "Inputs",
+      "inputsWithCount": "Inputs · {{count}}",
+      "inputsTitle": "Pre-supply input() values, one per line",
+      "handRaised": "Hand raised",
+      "askForHelp": "Ask for help",
+      "stdinHeader": "Inputs · one value per line · consumed by input() in order",
+      "hide": "hide",
+      "hintLabel": "💡 Hint",
+      "dismiss": "dismiss",
+      "hintCost": "−5 XP used for this hint",
+      "stuckPrompt": "Stuck after {{count}} attempts — need a nudge?",
+      "thinking": "Thinking…",
+      "getHint": "Get a hint (−5 XP)",
+      "terminal": "Terminal",
+      "downloadingPython": "downloading Python…",
+      "waitingForInput": "waiting for input — type below & press Enter",
+      "exitInfo": "Exit {{code}} · {{elapsed}}s",
+      "clear": "Clear",
+      "terminalEmpty": "Run your code to see output here...",
+      "runSeparator": "── Run {{n}} ──",
+      "runConnectionFailed": "Could not open a run connection.",
+      "runConnectionError": "Run connection error.",
+      "roster": "Roster",
+      "submissionsPanel": "Submissions",
+      "collapse": "Collapse",
+      "expandPanel": "Expand submissions panel",
+      "firstToSolve": "First to solve!",
+      "rosterLate": "Late",
+      "rosterDone": "✓",
+      "rosterMissing": "Missing",
+      "noSubmissions": "No submissions yet",
+      "waitingForStudents": "Waiting for students to submit",
+      "unknown": "Unknown",
+      "hintFallback": "Keep going — re-read the problem statement and trace through your code step by step."
+    },
+    "xp": {
+      "levels": {
+        "1": "Novice",
+        "2": "Apprentice",
+        "3": "Coder",
+        "4": "Hacker",
+        "5": "Expert",
+        "6": "Master",
+        "7": "Legend"
+      },
+      "frames": {
+        "plain": "Default",
+        "bronze": "Bronze",
+        "silver": "Silver",
+        "gold": "Gold",
+        "cosmic": "Cosmic"
+      },
+      "backgrounds": {
+        "default": "Default",
+        "cosmic": "Cosmic",
+        "matrix": "Matrix",
+        "sunset": "Sunset",
+        "ocean": "Ocean"
+      },
+      "auras": {
+        "none": "None",
+        "pulse": "Pulse",
+        "sparkle": "Sparkle",
+        "orbit": "Orbit",
+        "lightning": "Lightning",
+        "cosmic": "Cosmic",
+        "galaxy": "Galaxy"
+      },
+      "achievements": {
+        "first": { "name": "First Blood", "desc": "First successful submission" },
+        "streak7": { "name": "Week Warrior", "desc": "7-day coding streak" },
+        "perfect10": { "name": "Perfectionist", "desc": "10 perfect score submissions" },
+        "speed": { "name": "Speed Coder", "desc": "Submit in under 5 minutes" },
+        "500lines": { "name": "Prolific Writer", "desc": "500+ lines of code written" },
+        "collab": { "name": "Team Player", "desc": "Edit in a session with 5+ peers" },
+        "legend": { "name": "Legendary", "desc": "Reach Level 20" },
+        "nocopy": { "name": "Original", "desc": "0% plagiarism on all work" }
+      }
+    }
+  },
+  "badge": {
+    "success": "Accepted",
+    "failed": "Failed",
+    "timeout": "Timeout",
+    "open": "Open",
+    "closed": "Closed",
+    "live": "Live",
+    "in-progress": "In Progress",
+    "submitted": "Submitted",
+    "not-started": "Not Started"
+  },
+  "drawing": {
+    "colorWhite": "White",
+    "colorSky": "Sky",
+    "colorViolet": "Violet",
+    "colorEmerald": "Emerald",
+    "colorAmber": "Amber",
+    "colorRose": "Rose",
+    "colorOrange": "Orange",
+    "sizeThin": "Thin",
+    "sizeMedium": "Medium",
+    "sizeThick": "Thick",
+    "zoomOut": "Zoom out",
+    "resetView": "Reset view",
+    "zoomIn": "Zoom in",
+    "pen": "Pen",
+    "eraser": "Eraser",
+    "clearCanvas": "Clear canvas",
+    "clear": "Clear",
+    "openInNewTab": "Open in new tab",
+    "fullscreen": "Fullscreen",
+    "startDrawing": "Start drawing…",
+    "panHint": "Hold Space + drag to pan"
+  },
+  "editor": {
+    "handRaised": "Hand raised",
+    "builtinFunction": "Built-in function",
+    "keyword": "Keyword",
+    "printInfo": "Prints the given values to standard output.",
+    "rangeInfo": "Creates an arithmetic progression of integers.",
+    "lenInfo": "Returns the length of a sequence or collection.",
+    "defInfo": "Defines a new function: def name(args):",
+    "forInfo": "Loop keyword: for item in iterable:",
+    "ifInfo": "Conditional branch: if condition:"
+  }
+}

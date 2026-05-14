@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation, Trans } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { getMe, googleLogin } from "./lib/api";
 import { StrawieLogoSvg } from "./components/Logo";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 
 import strawieTeaching from "./assets/mascots/characters/strawie-teaching.png";
 import berryFocused from "./assets/mascots/characters/berry-focused.png";
@@ -85,42 +87,46 @@ const TYPING_LINE_INDEX = 4;
 const TYPING_FULL = `print(f"Welcome to class, {name}!")`;
 
 // ── Glass nav ───────────────────────────────────────────────────────────
-const Nav: React.FC<{ onSignIn: () => void }> = ({ onSignIn }) => (
-  <header className="fixed top-4 inset-x-0 z-50 flex justify-center px-4">
-    <nav
-      className="flex items-center gap-2 px-3 py-2 rounded-full
-                 bg-white/70 backdrop-blur-xl
-                 border border-white/60
-                 shadow-lift-glass"
-    >
-      <div className="pl-2 pr-3">
-        <StrawieLogoSvg size={26} />
-      </div>
-      <div className="hidden md:flex items-center gap-1 text-[13px] text-apple-ink-3 font-medium">
-        <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#editor">Editor</a>
-        <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#features">Features</a>
-        <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#teachers">Teachers</a>
-        <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#students">Students</a>
-      </div>
-      <button
-        onClick={onSignIn}
-        className="px-3 py-1.5 text-[13px] font-medium text-apple-ink-2 hover:text-apple-ink rounded-full transition"
+const Nav: React.FC<{ onSignIn: () => void }> = ({ onSignIn }) => {
+  const { t } = useTranslation();
+  return (
+    <header className="fixed top-4 inset-x-0 z-50 flex justify-center px-4">
+      <nav
+        className="flex items-center gap-2 px-3 py-2 rounded-full
+                   bg-white/70 backdrop-blur-xl
+                   border border-white/60
+                   shadow-lift-glass"
       >
-        Sign in
-      </button>
-      <button
-        onClick={onSignIn}
-        className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
-                   bg-apple-ink text-white text-[13px] font-semibold
-                   shadow-lift-sm
-                   hover:bg-apple-ink-2 active:scale-[0.98] transition"
-      >
-        Open Strawie
-        <ArrowRight size={14} strokeWidth={2.5} />
-      </button>
-    </nav>
-  </header>
-);
+        <div className="pl-2 pr-3">
+          <StrawieLogoSvg size={26} />
+        </div>
+        <div className="hidden md:flex items-center gap-1 text-[13px] text-apple-ink-3 font-medium">
+          <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#editor">{t("landing.nav.editor")}</a>
+          <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#features">{t("landing.nav.features")}</a>
+          <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#teachers">{t("landing.nav.teachers")}</a>
+          <a className="px-3 py-1.5 rounded-full hover:bg-apple-mist transition" href="#students">{t("landing.nav.students")}</a>
+        </div>
+        <LanguageSwitcher variant="light" />
+        <button
+          onClick={onSignIn}
+          className="px-3 py-1.5 text-[13px] font-medium text-apple-ink-2 hover:text-apple-ink rounded-full transition"
+        >
+          {t("landing.nav.signIn")}
+        </button>
+        <button
+          onClick={onSignIn}
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
+                     bg-apple-ink text-white text-[13px] font-semibold
+                     shadow-lift-sm
+                     hover:bg-apple-ink-2 active:scale-[0.98] transition"
+        >
+          {t("landing.nav.open")}
+          <ArrowRight size={14} strokeWidth={2.5} />
+        </button>
+      </nav>
+    </header>
+  );
+};
 
 // ── Code Editor card ────────────────────────────────────────────────────
 const EditorCard: React.FC<{ className?: string }> = ({ className = "" }) => {
@@ -349,6 +355,7 @@ const COLLAB_USERS = [
 ];
 
 const CollabEditorView: React.FC = () => {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<"l5" | "l6">("l5");
   const lines = tab === "l5" ? L5 : L6;
   const fileName = tab === "l5" ? "lesson_5_recursion.py" : "lesson_6_sorting.py";
@@ -380,7 +387,7 @@ const CollabEditorView: React.FC = () => {
               {u.initial}
             </div>
           ))}
-          <span className="text-[11px] text-apple-ink-4 ml-0.5">3 live</span>
+          <span className="text-[11px] text-apple-ink-4 ml-0.5">{t("landing.showcase.live", { count: 3 })}</span>
         </div>
       </div>
       {/* tabs */}
@@ -432,7 +439,7 @@ const CollabEditorView: React.FC = () => {
       <div className="border-t border-apple-line bg-apple-mist/40 px-5 py-3">
         <div className="flex items-center gap-2 mb-1.5">
           <Terminal size={11} className="text-apple-ink-4" />
-          <span className="text-[11px] font-medium text-apple-ink-4 font-mono">Output</span>
+          <span className="text-[11px] font-medium text-apple-ink-4 font-mono">{t("landing.showcase.output")}</span>
         </div>
         <div className="font-mono text-[12px] text-apple-ink-2 leading-[20px]">
           {output.map((o, i) => <div key={i}>{o}</div>)}
@@ -526,6 +533,7 @@ const BentoEditorMini: React.FC = () => (
 
 // ── Hero ────────────────────────────────────────────────────────────────
 const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
+  const { t } = useTranslation();
   return (
     <section className="relative pt-36 pb-28 px-6 overflow-hidden">
       {/* subtle background wash */}
@@ -549,7 +557,7 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span className="text-[12px] font-medium text-apple-ink-2">
-              For computer-science classrooms
+              {t("landing.hero.badge")}
             </span>
           </motion.div>
 
@@ -559,12 +567,15 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
             className="text-[clamp(40px,6vw,76px)] leading-[1.04] tracking-[-0.04em]
                        font-[800] text-apple-ink"
           >
-            Teach Python the way{" "}
-            <span className="bg-gradient-to-br from-berry-blue via-berry-purple to-berry-coral
-                             bg-clip-text text-transparent">
-              you'd teach it
-            </span>{" "}
-            in person.
+            <Trans
+              i18nKey="landing.hero.title"
+              components={{
+                grad: (
+                  <span className="bg-gradient-to-br from-berry-blue via-berry-purple to-berry-coral
+                                   bg-clip-text text-transparent" />
+                ),
+              }}
+            />
           </motion.h1>
 
           <motion.p
@@ -572,8 +583,7 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
             variants={fadeUp}
             className="mt-7 text-[18px] leading-[1.55] text-apple-ink-3 max-w-[620px] mx-auto"
           >
-            Strawie is a browser-based Python editor where teachers and students
-            work in the same file, live. No installs, no setup.
+            {t("landing.hero.subtitle")}
           </motion.p>
 
           <motion.div
@@ -588,7 +598,7 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
                          shadow-lift-md
                          hover:bg-apple-ink-2 active:scale-[0.98] transition"
             >
-              Start a classroom
+              {t("landing.hero.ctaPrimary")}
               <ArrowRight size={16} strokeWidth={2.5} />
             </button>
             <button
@@ -600,7 +610,7 @@ const Hero: React.FC<{ onCta: () => void }> = ({ onCta }) => {
                          shadow-lift-sm
                          hover:bg-white transition"
             >
-              Join with a code
+              {t("landing.hero.ctaSecondary")}
             </button>
           </motion.div>
         </motion.div>
@@ -643,13 +653,15 @@ const SectionHeader: React.FC<{ eyebrow: string; title: React.ReactNode; sub?: s
 );
 
 // ── Editor showcase section ─────────────────────────────────────────────
-const EditorShowcase: React.FC = () => (
+const EditorShowcase: React.FC = () => {
+  const { t } = useTranslation();
+  return (
   <section id="editor" className="px-6 py-28 bg-gradient-to-b from-apple-bg to-white overflow-hidden">
     <div className="max-w-[1180px] mx-auto">
       <SectionHeader
-        eyebrow="Live collaboration"
-        title={<>Three cursors. One file.<br />Zero conflicts.</>}
-        sub="Edits sync via Yjs CRDT — the algorithm that lets ten students type in the same file simultaneously without overwriting each other. Cursors carry names. Selections stay visible."
+        eyebrow={t("landing.showcase.eyebrow")}
+        title={t("landing.showcase.title")}
+        sub={t("landing.showcase.subtitle")}
       />
       <div className="max-w-[940px] mx-auto">
         {/* Mascots row — sits between the subtitle and the editor card */}
@@ -666,7 +678,8 @@ const EditorShowcase: React.FC = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 // ── Hanging mascots (decorative) ────────────────────────────────────────
 type HangingMascotProps = {
@@ -781,28 +794,28 @@ const BentoTile: React.FC<{
   </motion.div>
 );
 
-const Bento: React.FC = () => (
+const Bento: React.FC = () => {
+  const { t } = useTranslation();
+  return (
   <section id="features" className="px-6 py-28">
     <div className="max-w-[1180px] mx-auto">
       <SectionHeader
-        eyebrow="Features"
-        title={<>Everything a classroom needs.</>}
-        sub="Built-in, not bolted on. Strawie ships with everything a classroom needs — editor, runner, grader, and hints — no integrations required."
+        eyebrow={t("landing.features.eyebrow")}
+        title={t("landing.features.title")}
+        sub={t("landing.features.subtitle")}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         {/* 1. Live editing — wide */}
         <BentoTile className="md:col-span-4 md:row-span-2 min-h-[420px]" delay={0}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-blue uppercase tracking-wider mb-2">
-            <Code2 size={14} /> Live editing
+            <Code2 size={14} /> {t("landing.features.liveEditing.tag")}
           </div>
           <h3 className="text-[24px] font-[800] tracking-[-0.02em] text-apple-ink mb-2">
-            See every keystroke.
+            {t("landing.features.liveEditing.title")}
           </h3>
           <p className="text-[14px] text-apple-ink-3 leading-relaxed mb-6 max-w-[420px]">
-            CodeMirror under the hood, Yjs for sync. Cursors carry names, selections
-            highlight live, and the file stays consistent even when ten students
-            edit at once.
+            {t("landing.features.liveEditing.body")}
           </p>
           <div className="absolute bottom-0 right-0 w-[78%] translate-y-[18%] translate-x-[10%]">
             <div className="rounded-tl-[18px] overflow-hidden shadow-lift-md">
@@ -814,15 +827,18 @@ const Bento: React.FC = () => (
         {/* 2. AI hints */}
         <BentoTile className="md:col-span-2" delay={0.05}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-purple uppercase tracking-wider mb-2">
-            <Sparkles size={14} /> AI hints
+            <Sparkles size={14} /> {t("landing.features.aiHints.tag")}
           </div>
           <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-2">
-            Stuck? Spend a few XP.
+            {t("landing.features.aiHints.title")}
           </h3>
           <div className="flex items-end gap-3">
             <img src={berryAsking} alt="" className="w-20 h-24 object-contain drop-shadow-sm" />
             <div className="flex-1 mb-2 px-3 py-2 rounded-2xl rounded-bl-sm bg-berry-purple-soft text-[12px] text-apple-ink-2 leading-snug border border-berry-purple/15">
-              Try printing <code className="px-1 rounded bg-white text-berry-purple font-mono">name</code> first to see what's inside.
+              <Trans
+                i18nKey="landing.features.aiHints.bubble"
+                components={{ code: <code className="px-1 rounded bg-white text-berry-purple font-mono" /> }}
+              />
             </div>
           </div>
         </BentoTile>
@@ -830,17 +846,17 @@ const Bento: React.FC = () => (
         {/* 3. Auto-grading */}
         <BentoTile className="md:col-span-2" delay={0.1}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-emerald-600 uppercase tracking-wider mb-2">
-            <CheckCircle2 size={14} /> Auto-grading
+            <CheckCircle2 size={14} /> {t("landing.features.autoGrading.tag")}
           </div>
           <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
-            Tests run on submit.
+            {t("landing.features.autoGrading.title")}
           </h3>
           <div className="space-y-2 text-[12px] font-mono">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700">
-              <CheckCircle2 size={12} /> test_prints_welcome — passed
+              <CheckCircle2 size={12} /> test_prints_welcome — {t("landing.features.autoGrading.passed")}
             </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700">
-              <CheckCircle2 size={12} /> test_xp_increments — passed
+              <CheckCircle2 size={12} /> test_xp_increments — {t("landing.features.autoGrading.passed")}
             </div>
           </div>
         </BentoTile>
@@ -848,10 +864,10 @@ const Bento: React.FC = () => (
         {/* 4. Invite codes */}
         <BentoTile className="md:col-span-2" delay={0.15}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-coral uppercase tracking-wider mb-2">
-            <KeyRound size={14} /> Invite
+            <KeyRound size={14} /> {t("landing.features.invite.tag")}
           </div>
           <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
-            One link, six characters.
+            {t("landing.features.invite.title")}
           </h3>
           <div className="flex items-center gap-1">
             {"H6P-2Q9".split("").map((ch, i) =>
@@ -874,10 +890,10 @@ const Bento: React.FC = () => (
         {/* 5. Sandbox */}
         <BentoTile className="md:col-span-2" delay={0.2}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-apple-ink-3 uppercase tracking-wider mb-2">
-            <Terminal size={14} /> Sandbox
+            <Terminal size={14} /> {t("landing.features.sandbox.tag")}
           </div>
           <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
-            Code runs, isolated.
+            {t("landing.features.sandbox.title")}
           </h3>
           <div className="rounded-xl bg-apple-ink p-3 font-mono text-[11px]">
             <div className="text-emerald-400">$ python lesson_1.py</div>
@@ -889,10 +905,10 @@ const Bento: React.FC = () => (
         {/* 6. Drawing Mode — fills row 3 cols 5-6 */}
         <BentoTile className="md:col-span-2" delay={0.22}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-coral uppercase tracking-wider mb-2">
-            <PenLine size={14} /> Drawing
+            <PenLine size={14} /> {t("landing.features.drawing.tag")}
           </div>
           <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
-            Diagram together.
+            {t("landing.features.drawing.title")}
           </h3>
           <div className="relative rounded-xl border border-apple-line bg-apple-mist/30 h-[90px] overflow-hidden">
             <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 90" preserveAspectRatio="none">
@@ -917,7 +933,7 @@ const Bento: React.FC = () => (
             </div>
           </div>
           <p className="text-[11px] text-apple-ink-3 mt-2 leading-snug">
-            Miro-style canvas, real-time. Sketch diagrams while you code.
+            {t("landing.features.drawing.body")}
           </p>
         </BentoTile>
 
@@ -926,10 +942,10 @@ const Bento: React.FC = () => (
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-amber uppercase tracking-wider mb-1">
-                <Activity size={14} /> Streaks &amp; XP
+                <Activity size={14} /> {t("landing.features.streaks.tag")}
               </div>
               <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink">
-                Effort visible from a glance.
+                {t("landing.features.streaks.title")}
               </h3>
             </div>
             <div className="text-right">
@@ -978,16 +994,16 @@ const Bento: React.FC = () => (
         {/* 8. Achievements — fills row 4 cols 5-6 */}
         <BentoTile className="md:col-span-2" delay={0.28}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-berry-amber uppercase tracking-wider mb-2">
-            <Trophy size={14} /> Achievements
+            <Trophy size={14} /> {t("landing.features.achievements.tag")}
           </div>
           <h3 className="text-[20px] font-[800] tracking-[-0.02em] text-apple-ink mb-3">
-            Earn as you learn.
+            {t("landing.features.achievements.title")}
           </h3>
           <div className="flex gap-2">
             {[
-              { icon: <Flame size={16} />, label: "7-day streak", bg: "bg-orange-50", border: "border-orange-100", text: "text-orange-500" },
-              { icon: <Zap size={16} />, label: "First solve", bg: "bg-blue-50", border: "border-blue-100", text: "text-berry-blue" },
-              { icon: <Trophy size={16} />, label: "Top scorer", bg: "bg-yellow-50", border: "border-yellow-100", text: "text-yellow-500" },
+              { icon: <Flame size={16} />, label: t("landing.features.achievements.streak"), bg: "bg-orange-50", border: "border-orange-100", text: "text-orange-500" },
+              { icon: <Zap size={16} />, label: t("landing.features.achievements.firstSolve"), bg: "bg-blue-50", border: "border-blue-100", text: "text-berry-blue" },
+              { icon: <Trophy size={16} />, label: t("landing.features.achievements.topScorer"), bg: "bg-yellow-50", border: "border-yellow-100", text: "text-yellow-500" },
             ].map((b) => (
               <div
                 key={b.label}
@@ -1000,9 +1016,9 @@ const Bento: React.FC = () => (
           </div>
           <div className="mt-3 flex gap-2">
             {[
-              { icon: <Star size={14} />, label: "100 XP", locked: false },
-              { icon: <Lightbulb size={14} />, label: "Hint master", locked: false },
-              { icon: <Target size={14} />, label: "Perfect run", locked: true },
+              { icon: <Star size={14} />, label: t("landing.features.achievements.hundredXp"), locked: false },
+              { icon: <Lightbulb size={14} />, label: t("landing.features.achievements.hintMaster"), locked: false },
+              { icon: <Target size={14} />, label: t("landing.features.achievements.perfectRun"), locked: true },
             ].map((b) => (
               <div
                 key={b.label}
@@ -1017,29 +1033,31 @@ const Bento: React.FC = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 // ── How it works ───────────────────────────────────────────────────────
 const Steps: React.FC = () => {
+  const { t } = useTranslation();
   const steps: { n: string; title: string; desc: string; mascot?: string; mascotClass?: string }[] = [
-    { n: "01", title: "Create a classroom", desc: "Sign in with Google. Name your group. Done.", mascot: strawieTeaching },
+    { n: "01", title: t("landing.steps.step1Title"), desc: t("landing.steps.step1Desc"), mascot: strawieTeaching },
     {
       n: "02",
-      title: "Share the code",
-      desc: "Send a 6-character invite to your students.",
+      title: t("landing.steps.step2Title"),
+      desc: t("landing.steps.step2Desc"),
       mascot: raspieSliding,
       mascotClass: "h-16 w-auto max-w-[7rem] object-contain object-left drop-shadow-sm mb-3",
     },
-    { n: "03", title: "Code together", desc: "Open the same file. Cursors and edits sync live.", mascot: berryAsking },
-    { n: "04", title: "Submit & review", desc: "Tests run automatically. Leave feedback inline.", mascot: berryBuildSuccess },
+    { n: "03", title: t("landing.steps.step3Title"), desc: t("landing.steps.step3Desc"), mascot: berryAsking },
+    { n: "04", title: t("landing.steps.step4Title"), desc: t("landing.steps.step4Desc"), mascot: berryBuildSuccess },
   ];
 
   return (
     <section className="px-6 py-28 bg-apple-mist/40">
       <div className="max-w-[1180px] mx-auto">
         <SectionHeader
-          eyebrow="How it works"
-          title={<>Setup is one link.</>}
+          eyebrow={t("landing.steps.eyebrow")}
+          title={t("landing.steps.title")}
         />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {steps.map((s, i) => (
@@ -1077,30 +1095,37 @@ const Steps: React.FC = () => {
 
 // ── Roles split ────────────────────────────────────────────────────────
 const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
+  const { t } = useTranslation();
   const teacher = {
     id: "teachers",
-    role: "Teachers",
+    roleKey: "teacher" as const,
+    roleLabel: t("landing.roles.forTeachers"),
+    heading: t("landing.roles.teacherHeading"),
+    openLabel: t("landing.roles.openAsTeacher"),
     img: strawieTeaching,
     accentText: "text-berry-blue",
     bullets: [
-      "Create classrooms with invite codes",
-      "Watch every student's editor live",
-      "Set assignments with template & test code",
-      "Auto-grade against your own tests",
-      "Drop into any student's file to leave a cursor",
+      t("landing.roles.teacherBullet1"),
+      t("landing.roles.teacherBullet2"),
+      t("landing.roles.teacherBullet3"),
+      t("landing.roles.teacherBullet4"),
+      t("landing.roles.teacherBullet5"),
     ],
   };
   const student = {
     id: "students",
-    role: "Students",
+    roleKey: "student" as const,
+    roleLabel: t("landing.roles.forStudents"),
+    heading: t("landing.roles.studentHeading"),
+    openLabel: t("landing.roles.openAsStudent"),
     img: berryFocused,
     accentText: "text-berry-purple",
     bullets: [
-      "Join a class with a code — no setup",
-      "Edit code with classmates in the same file",
-      "Submit once — see test results immediately",
-      "Earn XP, build a streak, customize a profile",
-      "Spend XP for an AI hint when stuck",
+      t("landing.roles.studentBullet1"),
+      t("landing.roles.studentBullet2"),
+      t("landing.roles.studentBullet3"),
+      t("landing.roles.studentBullet4"),
+      t("landing.roles.studentBullet5"),
     ],
   };
 
@@ -1108,13 +1133,13 @@ const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
     <section className="px-6 py-28">
       <div className="max-w-[1180px] mx-auto">
         <SectionHeader
-          eyebrow="Two views"
-          title={<>Different views of the same room.</>}
+          eyebrow={t("landing.roles.eyebrow")}
+          title={t("landing.roles.title")}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {[teacher, student].map((r, i) => (
             <motion.div
-              key={r.role}
+              key={r.roleKey}
               id={r.id}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -1133,10 +1158,10 @@ const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
                 </div>
                 <div>
                   <div className={`text-[11px] font-semibold uppercase tracking-wider ${r.accentText}`}>
-                    For {r.role}
+                    {r.roleLabel}
                   </div>
                   <h3 className="text-[24px] font-[800] tracking-[-0.02em] text-apple-ink">
-                    {r.role === "Teachers" ? "Lead the room." : "Learn out loud."}
+                    {r.heading}
                   </h3>
                 </div>
               </div>
@@ -1159,7 +1184,7 @@ const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
                               bg-apple-ink text-white text-[13px] font-semibold
                               shadow-lift-sm hover:bg-apple-ink-2 transition`}
                 >
-                  Open Strawie as {r.role.replace(/s$/, "").toLowerCase()}
+                  {r.openLabel}
                   <ArrowRight size={14} strokeWidth={2.5} />
                 </button>
               </div>
@@ -1172,7 +1197,9 @@ const Roles: React.FC<{ onCta: () => void }> = ({ onCta }) => {
 };
 
 // ── CTA ────────────────────────────────────────────────────────────────
-const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
+const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => {
+  const { t } = useTranslation();
+  return (
   <section className="px-6 py-32">
     <div className="max-w-[920px] mx-auto">
       <div className="relative rounded-[32px] bg-white border border-apple-line shadow-lift-xl p-12 text-center overflow-hidden">
@@ -1197,7 +1224,7 @@ const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
             transition={SPRING}
             className="text-[clamp(32px,4vw,52px)] leading-[1.05] tracking-[-0.03em] font-[800] text-apple-ink"
           >
-            Open the room.
+            {t("landing.cta.title")}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 16 }}
@@ -1206,8 +1233,7 @@ const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
             transition={{ ...SPRING, delay: 0.1 }}
             className="mt-4 text-[16px] text-apple-ink-3 max-w-[480px] mx-auto"
           >
-            Free while we're in beta. Sign in with a Google account — that's all
-            it takes.
+            {t("landing.cta.subtitle")}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -1222,7 +1248,7 @@ const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
                          bg-apple-ink text-white text-[14px] font-semibold
                          shadow-lift-md hover:bg-apple-ink-2 active:scale-[0.98] transition"
             >
-              Open Strawie
+              {t("landing.cta.button")}
               <ArrowRight size={16} strokeWidth={2.5} />
             </button>
           </motion.div>
@@ -1230,17 +1256,21 @@ const CTA: React.FC<{ onCta: () => void }> = ({ onCta }) => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 // ── Footer ─────────────────────────────────────────────────────────────
-const Footer: React.FC = () => (
+const Footer: React.FC = () => {
+  const { t } = useTranslation();
+  return (
   <footer className="px-6 py-10 border-t border-apple-line bg-white">
     <div className="max-w-[1180px] mx-auto flex items-center justify-between">
       <StrawieLogoSvg size={24} />
-      <div className="text-[12px] text-apple-ink-4">© Strawie · 2026</div>
+      <div className="text-[12px] text-apple-ink-4">{t("landing.footer.copyright")}</div>
     </div>
   </footer>
-);
+  );
+};
 
 // ── Page ───────────────────────────────────────────────────────────────
 export const LandingPage: React.FC = () => {

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import i18n from "./i18n";
 import { CodeEditor } from "./components/CodeEditor";
 import { DrawingCanvas } from "./components/DrawingCanvas";
 import { SimpleInputModal } from "./components/SimpleInputModal";
@@ -16,6 +18,7 @@ import {
   getMyActivity,
   getMyCosmetics,
   getMyStats,
+  getSandboxWsUrl,
   joinGroup,
   listAllUsers,
   listAssignments,
@@ -32,11 +35,10 @@ import { Confetti } from "./components/Confetti";
 import {
   onPyodideProgress,
   runForSubmission,
-  runInteractive,
   warmupPyodide,
-  type RunOutput,
 } from "./lib/pyodideRunner";
 import { ChalkLogo } from "./components/Logo";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Avatar } from "./components/Avatar";
 import { Badge } from "./components/Badge";
 import { ActivityGraph } from "./components/ActivityGraph";
@@ -68,11 +70,11 @@ function formatDueDate(dueAt: string): string {
 
 function formatTimeRemaining(dueAt: string): string {
   const diff = new Date(dueAt).getTime() - Date.now();
-  if (diff <= 0) return "OVERDUE";
+  if (diff <= 0) return i18n.t("app.deadline.overdueShort");
   const hours = Math.floor(diff / 3_600_000);
-  if (hours < 24) return `${hours}h remaining`;
+  if (hours < 24) return i18n.t("app.deadline.hoursRemaining", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days} day${days !== 1 ? "s" : ""} remaining`;
+  return i18n.t("app.deadline.daysRemaining", { count: days });
 }
 
 function isSubmittedLate(submittedAt: string, dueAt: string | null): boolean {
@@ -92,6 +94,7 @@ const URGENCY_STYLES: Record<DeadlineUrgency, { bg: string; color: string }> = {
 };
 
 const DeadlineBadge: React.FC<{ dueAt: string; className?: string }> = ({ dueAt, className = "" }) => {
+  const { t } = useTranslation();
   const urgency = getDeadlineUrgency(dueAt);
   const s = URGENCY_STYLES[urgency];
   return (
@@ -99,7 +102,7 @@ const DeadlineBadge: React.FC<{ dueAt: string; className?: string }> = ({ dueAt,
       className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full font-mono font-medium ${className}`}
       style={{ background: s.bg, color: s.color }}
     >
-      {urgency === "overdue" ? "⚠ OVERDUE" : `Due ${formatDueDate(dueAt)}`}
+      {urgency === "overdue" ? t("app.deadline.overdue") : t("app.deadline.due", { date: formatDueDate(dueAt) })}
     </span>
   );
 };
@@ -120,6 +123,7 @@ interface CreateAssignmentModalProps {
 }
 
 const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm, onCancel }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [templateCode, setTemplateCode] = useState("# Write your solution here\n\n");
@@ -154,7 +158,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
         style={{ background: "var(--bg-2)", border: "1px solid var(--border)" }}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-          <h2 className="text-sm font-semibold">New Assignment</h2>
+          <h2 className="text-sm font-semibold">{t("app.createAssignment.title")}</h2>
           <button type="button" onClick={onCancel} style={{ color: "var(--subtle)" }} className="hover:text-[var(--text)] transition-colors">
             <X className="h-4 w-4" />
           </button>
@@ -162,11 +166,11 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
 
         <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
           <div className="space-y-1.5">
-            <label className="block text-xs" style={{ color: "var(--muted)" }}>Type</label>
+            <label className="block text-xs" style={{ color: "var(--muted)" }}>{t("app.createAssignment.type")}</label>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { hw: false, emoji: "💻", title: "In-class Exercise", desc: "Live coding session, no deadline", accent: "var(--indigo)" },
-                { hw: true, emoji: "📋", title: "Homework", desc: "Completed outside class, with deadline", accent: "var(--mint)" },
+                { hw: false, emoji: "💻", title: t("app.createAssignment.exerciseTitle"), desc: t("app.createAssignment.exerciseDesc"), accent: "var(--indigo)" },
+                { hw: true, emoji: "📋", title: t("app.createAssignment.homeworkTitle"), desc: t("app.createAssignment.homeworkDesc"), accent: "var(--mint)" },
               ].map(opt => (
                 <button
                   key={String(opt.hw)}
@@ -189,7 +193,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
 
           {isHomework && (
             <div className="flex items-center gap-2 p-3 rounded-[10px]" style={{ background: "var(--indigo-muted)", border: "1px solid oklch(55% 0.22 264 / 0.25)" }}>
-              <span className="text-xs font-medium shrink-0" style={{ color: "var(--indigo)" }}>Due:</span>
+              <span className="text-xs font-medium shrink-0" style={{ color: "var(--indigo)" }}>{t("app.createAssignment.due")}</span>
               <input
                 type="date"
                 value={dueDate}
@@ -208,13 +212,13 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
           )}
 
           <div className="space-y-1">
-            <label className="block text-xs" style={{ color: "var(--muted)" }}>Title <span style={{ color: "var(--rose)" }}>*</span></label>
+            <label className="block text-xs" style={{ color: "var(--muted)" }}>{t("app.createAssignment.titleLabel")} <span style={{ color: "var(--rose)" }}>*</span></label>
             <input
               ref={titleRef}
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Variables & Data Types"
+              placeholder={t("app.createAssignment.titlePlaceholder")}
               className="w-full rounded-[10px] px-3 py-2 text-sm placeholder:opacity-40 focus:outline-none"
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }}
               required
@@ -222,11 +226,11 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs" style={{ color: "var(--muted)" }}>Instructions</label>
+            <label className="block text-xs" style={{ color: "var(--muted)" }}>{t("app.createAssignment.instructions")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what students should do…"
+              placeholder={t("app.createAssignment.instructionsPlaceholder")}
               rows={3}
               className="w-full rounded-[10px] px-3 py-2 text-sm placeholder:opacity-40 focus:outline-none resize-none"
               style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }}
@@ -234,7 +238,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs" style={{ color: "var(--muted)" }}>Starter Code</label>
+            <label className="block text-xs" style={{ color: "var(--muted)" }}>{t("app.createAssignment.starterCode")}</label>
             <textarea
               value={templateCode}
               onChange={(e) => setTemplateCode(e.target.value)}
@@ -250,9 +254,9 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
           >
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs font-medium">Auto-Grading Tests</span>
+                <span className="text-xs font-medium">{t("app.createAssignment.autoGradingTests")}</span>
                 <p className="text-[10px] mt-0.5" style={{ color: "var(--subtle)" }}>
-                  Runs after submission — students see pass/fail.
+                  {t("app.createAssignment.autoGradingDesc")}
                 </p>
               </div>
               <button
@@ -288,7 +292,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
               className="px-3 py-1.5 text-xs rounded-[10px] transition-colors"
               style={{ border: "1px solid var(--border)", color: "var(--muted)", background: "transparent" }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -296,7 +300,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({ onConfirm
               className="px-4 py-1.5 text-xs rounded-[10px] font-semibold disabled:opacity-50 transition-colors"
               style={{ background: "var(--indigo)", color: "#fff" }}
             >
-              {isHomework ? "Create Homework" : "Create Exercise"}
+              {isHomework ? t("app.createAssignment.createHomework") : t("app.createAssignment.createExercise")}
             </button>
           </div>
         </form>
@@ -347,6 +351,7 @@ type EditorFile = {
 
 
 export const MentorApp: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
   const [view, setView] = useState<View>("dashboard");
@@ -479,7 +484,7 @@ export const MentorApp: React.FC = () => {
     try {
       const grp = await createGroup(name, "");
       setGroups(prev => [...prev, grp]);
-    } catch (e: any) { setError(e.message || "Failed to create group."); }
+    } catch (e: any) { setError(e.message || t("app.errors.createGroup")); }
   };
 
   const handleJoinGroup = () => setShowJoinGroupModal(true);
@@ -491,7 +496,7 @@ export const MentorApp: React.FC = () => {
       await joinGroup(code);
       const grps = await listGroups();
       setGroups(grps || []);
-    } catch (e: any) { setError(e.message || "Failed to join group."); }
+    } catch (e: any) { setError(e.message || t("app.errors.joinGroup")); }
   };
 
   const toggleGroup = async (groupId: string) => {
@@ -501,7 +506,7 @@ export const MentorApp: React.FC = () => {
       try {
         const cls = await listClassrooms(groupId);
         setGroupClassrooms(prev => ({ ...prev, [groupId]: cls || [] }));
-      } catch (e: any) { setError(e.message || "Failed to load classrooms."); }
+      } catch (e: any) { setError(e.message || t("app.errors.loadClassrooms")); }
     }
   };
 
@@ -515,28 +520,28 @@ export const MentorApp: React.FC = () => {
     try {
       const cls = await createClassroom(groupId, name, "");
       setGroupClassrooms(prev => ({ ...prev, [groupId]: [...(prev[groupId] || []), cls] }));
-    } catch (e: any) { setError(e.message || "Failed to create classroom."); }
+    } catch (e: any) { setError(e.message || t("app.errors.createClassroom")); }
   };
 
   const handleDeleteGroup = async (groupId: string, groupName: string) => {
-    if (!window.confirm(`Delete group "${groupName}"? This will remove all classrooms and data inside it.`)) return;
+    if (!window.confirm(t("app.confirm.deleteGroup", { name: groupName }))) return;
     setError(null);
     try {
       await deleteGroup(groupId);
       setGroups(prev => prev.filter(g => g.id !== groupId));
       setGroupClassrooms(prev => { const next = { ...prev }; delete next[groupId]; return next; });
       if (currentClassroom?.group_id === groupId) { setCurrentClassroom(null); setView("dashboard"); }
-    } catch (e: any) { setError(e.message || "Failed to delete group."); }
+    } catch (e: any) { setError(e.message || t("app.errors.deleteGroup")); }
   };
 
   const handleDeleteClassroom = async (classroomId: string, classroomName: string, groupId: string) => {
-    if (!window.confirm(`Delete classroom "${classroomName}"? All assignments and submissions inside will be removed.`)) return;
+    if (!window.confirm(t("app.confirm.deleteClassroom", { name: classroomName }))) return;
     setError(null);
     try {
       await deleteClassroom(classroomId);
       setGroupClassrooms(prev => ({ ...prev, [groupId]: (prev[groupId] || []).filter((c: any) => c.id !== classroomId) }));
       if (currentClassroom?.id === classroomId) { setCurrentClassroom(null); setView("dashboard"); }
-    } catch (e: any) { setError(e.message || "Failed to delete classroom."); }
+    } catch (e: any) { setError(e.message || t("app.errors.deleteClassroom")); }
   };
 
   const openClassroom = async (cls: any) => {
@@ -554,7 +559,7 @@ export const MentorApp: React.FC = () => {
         setSubmissionsByAssignment({});
       }
       setView("classroom");
-    } catch (e: any) { setError(e.message || "Failed to load assignments."); }
+    } catch (e: any) { setError(e.message || t("app.errors.loadAssignments")); }
   };
 
   const handleCreateAssignment = () => setShowCreateModal(true);
@@ -567,7 +572,7 @@ export const MentorApp: React.FC = () => {
       const asg = await createAssignment(currentClassroom.id, data.title, data.description, data.templateCode, data.dueAt, data.testCode);
       setAssignments(prev => [...prev, asg]);
       setSubmissionsByAssignment(prev => ({ ...prev, [asg.id]: [] }));
-    } catch (e: any) { setError(e.message || "Failed to create assignment."); }
+    } catch (e: any) { setError(e.message || t("app.errors.createAssignment")); }
   };
 
   const openAssignment = async (asg: any) => {
@@ -592,7 +597,7 @@ export const MentorApp: React.FC = () => {
         } catch { setGroupMembers([]); }
       } else { setGroupMembers([]); }
       setView("assignment");
-    } catch (e: any) { setError(e.message || "Failed to load submissions."); }
+    } catch (e: any) { setError(e.message || t("app.errors.loadSubmissions")); }
   };
 
   const handleAddFile = () => { if (currentAssignment) setShowAddFileModal(true); };
@@ -646,7 +651,7 @@ export const MentorApp: React.FC = () => {
         setFailedAttempts(prev => prev + 1);
       }
       void refreshStats();
-    } catch (e: any) { setError(e.message || "Failed to submit."); } finally { setLoading(false); }
+    } catch (e: any) { setError(e.message || t("app.errors.submit")); } finally { setLoading(false); }
   };
 
   const isAdmin = user?.email === "madiyar.zmm@gmail.com";
@@ -659,7 +664,7 @@ export const MentorApp: React.FC = () => {
     try {
       const users = await listAllUsers();
       setAdminUsers(users || []);
-    } catch (e: any) { setError(e.message || "Failed to load users."); } finally { setAdminLoading(false); }
+    } catch (e: any) { setError(e.message || t("app.errors.loadUsers")); } finally { setAdminLoading(false); }
   };
 
   const handleToggleRole = async (userId: string, currentRole: string) => {
@@ -667,7 +672,7 @@ export const MentorApp: React.FC = () => {
     try {
       const updated = await updateUserRole(userId, newRole as "teacher" | "student");
       setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, role: updated.role } : u));
-    } catch (e: any) { setError(e.message || "Failed to update role."); }
+    } catch (e: any) { setError(e.message || t("app.errors.updateRole")); }
   };
 
   const handleGetHint = async () => {
@@ -677,7 +682,7 @@ export const MentorApp: React.FC = () => {
       const h = await getHint(currentAssignment.id, code, failedAttempts);
       setHint(h);
       setXp(prev => Math.max(0, (prev ?? 0) - 5));
-    } catch { setHint("Keep going — re-read the problem statement and trace through your code step by step."); } finally { setHintLoading(false); }
+    } catch { setHint(t("app.assignment.hintFallback")); } finally { setHintLoading(false); }
   };
 
   const handleSaveFeedback = async (submissionId: string, feedback: string) => {
@@ -700,7 +705,7 @@ export const MentorApp: React.FC = () => {
             className="h-4 w-4 rounded-full border-2 border-t-transparent animate-spin"
             style={{ borderColor: "var(--indigo)", borderTopColor: "transparent" }}
           />
-          Loading…
+          {t("common.loading")}
         </div>
       </div>
     );
@@ -708,14 +713,14 @@ export const MentorApp: React.FC = () => {
 
   // ── nav items per role ────────────────────────────────────────────────────
   const teacherNav = [
-    { id: "dashboard" as View, label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-    { id: "classroom" as View, label: "Classroom", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
-    { id: "submissions" as View, label: "Submissions", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+    { id: "dashboard" as View, label: t("app.nav.dashboard"), icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { id: "classroom" as View, label: t("app.nav.classroom"), icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
+    { id: "submissions" as View, label: t("app.nav.submissions"), icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
   ];
   const studentNav = [
-    { id: "dashboard" as View, label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-    { id: "classroom" as View, label: "Classroom", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
-    { id: "assignment" as View, label: "Editor", icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" },
+    { id: "dashboard" as View, label: t("app.nav.dashboard"), icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { id: "classroom" as View, label: t("app.nav.classroom"), icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
+    { id: "assignment" as View, label: t("app.nav.editor"), icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" },
   ];
   const navItems = effectiveRole === "teacher" ? teacherNav : studentNav;
   // classroom nav item links to classroom view only if a classroom is selected
@@ -746,7 +751,7 @@ export const MentorApp: React.FC = () => {
               <button
                 onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
                 style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-3)", fontSize: 14 }}
-                title="Toggle theme"
+                title={t("app.sidebar.toggleTheme")}
               >
                 {theme === "dark" ? "☀" : "☾"}
               </button>
@@ -754,7 +759,7 @@ export const MentorApp: React.FC = () => {
             <button
               onClick={() => setSidebarCollapsed(v => !v)}
               style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-3)" }}
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? t("app.sidebar.expandSidebar") : t("app.sidebar.collapseSidebar")}
             >
               {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
             </button>
@@ -797,7 +802,7 @@ export const MentorApp: React.FC = () => {
           {!sidebarCollapsed && groups.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 12px 6px" }}>
-                Classrooms
+                {t("app.sidebar.classrooms")}
               </div>
               {groups.map(g => {
                 const isExpanded = expandedGroupId === g.id;
@@ -817,7 +822,7 @@ export const MentorApp: React.FC = () => {
                       {canCreate && (
                         <button
                           onClick={e => { e.stopPropagation(); handleDeleteGroup(g.id, g.name); }}
-                          title="Delete group"
+                          title={t("app.sidebar.deleteGroup")}
                           style={{ flexShrink: 0, padding: "4px 8px 4px 4px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", opacity: 0.5, lineHeight: 1 }}
                           onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
                           onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
@@ -847,7 +852,7 @@ export const MentorApp: React.FC = () => {
                         {canCreate && (
                           <button
                             onClick={e => { e.stopPropagation(); handleDeleteClassroom(c.id, c.name, g.id); }}
-                            title="Delete classroom"
+                            title={t("app.sidebar.deleteClassroom")}
                             style={{ flexShrink: 0, padding: "4px 8px 4px 4px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", opacity: 0.5, lineHeight: 1 }}
                             onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
                             onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
@@ -858,22 +863,22 @@ export const MentorApp: React.FC = () => {
                       </div>
                     ))}
                     {isExpanded && classrooms.length === 0 && (
-                      <div style={{ padding: "4px 12px 4px 28px", fontSize: 11, color: "var(--border-2)" }}>No classrooms</div>
+                      <div style={{ padding: "4px 12px 4px 28px", fontSize: 11, color: "var(--border-2)" }}>{t("app.sidebar.noClassrooms")}</div>
                     )}
                     {isExpanded && canCreate && (
                       <button
                         onClick={e => { e.stopPropagation(); handleCreateClassroom(g.id); }}
                         style={{ display: "block", width: "100%", padding: "4px 12px 4px 28px", background: "transparent", border: "none", cursor: "pointer", fontSize: 11, color: "var(--indigo)", textAlign: "left" }}
                       >
-                        + New Classroom
+                        {t("app.sidebar.newClassroom")}
                       </button>
                     )}
                   </div>
                 );
               })}
               <div style={{ display: "flex", gap: 4, padding: "4px 12px" }}>
-                <button onClick={handleJoinGroup} style={{ flex: 1, padding: "5px 0", borderRadius: 6, fontSize: 11, fontWeight: 500, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)" }}>Join</button>
-                {canCreate && <button onClick={handleCreateGroup} style={{ flex: 1, padding: "5px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--indigo)" }}>+ Group</button>}
+                <button onClick={handleJoinGroup} style={{ flex: 1, padding: "5px 0", borderRadius: 6, fontSize: 11, fontWeight: 500, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)" }}>{t("app.sidebar.join")}</button>
+                {canCreate && <button onClick={handleCreateGroup} style={{ flex: 1, padding: "5px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--indigo)" }}>{t("app.sidebar.newGroup")}</button>}
               </div>
             </div>
           )}
@@ -882,7 +887,7 @@ export const MentorApp: React.FC = () => {
         {/* VIEW AS — admin only, hidden when collapsed */}
         {!sidebarCollapsed && isAdmin && (
           <div style={{ background: "var(--bg-2)", borderRadius: "var(--r)", padding: 10, marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>View as</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>{t("app.sidebar.viewAs")}</div>
             <div style={{ display: "flex", gap: 4, background: "var(--bg-3)", borderRadius: 8, padding: 3 }}>
               {(["teacher", "student"] as const).map(r => (
                 <button
@@ -893,11 +898,17 @@ export const MentorApp: React.FC = () => {
                     background: effectiveRole === r ? "var(--bg)" : "transparent",
                     color: effectiveRole === r ? "var(--text)" : "var(--text-3)",
                     boxShadow: effectiveRole === r ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                    textTransform: "capitalize",
                   }}
-                >{r}</button>
+                >{t(`common.${r}`)}</button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Language switcher */}
+        {!sidebarCollapsed && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <LanguageSwitcher variant="dark" />
           </div>
         )}
 
@@ -908,7 +919,7 @@ export const MentorApp: React.FC = () => {
               <Avatar name={user?.name || user?.email || "?"} size={32} pulse={false} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.name}</div>
-                <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "capitalize" }}>{effectiveRole}</div>
+                <div style={{ fontSize: 11, color: "var(--text-3)" }}>{t(`common.${effectiveRole}`)}</div>
               </div>
             </div>
           )}
@@ -916,18 +927,18 @@ export const MentorApp: React.FC = () => {
             {isAdmin && (
               <button
                 onClick={handleOpenAdminPanel}
-                title={sidebarCollapsed ? "Users" : undefined}
+                title={sidebarCollapsed ? t("app.sidebar.users") : undefined}
                 style={{ flex: sidebarCollapsed ? undefined : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "5px 0", borderRadius: 6, fontSize: 11, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)", width: sidebarCollapsed ? 36 : undefined, height: sidebarCollapsed ? 30 : undefined }}
               >
-                <Users className="h-3 w-3" />{!sidebarCollapsed && " Users"}
+                <Users className="h-3 w-3" />{!sidebarCollapsed && ` ${t("app.sidebar.users")}`}
               </button>
             )}
             <button
               onClick={handleLogout}
-              title={sidebarCollapsed ? "Logout" : undefined}
+              title={sidebarCollapsed ? t("app.sidebar.logout") : undefined}
               style={{ flex: sidebarCollapsed ? undefined : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "5px 0", borderRadius: 6, fontSize: 11, background: "var(--bg-3)", border: "none", cursor: "pointer", color: "var(--text-3)", width: sidebarCollapsed ? 36 : undefined, height: sidebarCollapsed ? 30 : undefined }}
             >
-              <LogOut className="h-3 w-3" />{!sidebarCollapsed && " Logout"}
+              <LogOut className="h-3 w-3" />{!sidebarCollapsed && ` ${t("app.sidebar.logout")}`}
             </button>
           </div>
         </div>
@@ -1025,16 +1036,16 @@ export const MentorApp: React.FC = () => {
         <CreateAssignmentModal onConfirm={handleCreateAssignmentConfirm} onCancel={() => setShowCreateModal(false)} />
       )}
       {showCreateGroupModal && (
-        <SimpleInputModal title="New Group" placeholder="e.g. Python Basics — Spring 2026" confirmLabel="Create Group" onConfirm={handleCreateGroupConfirm} onCancel={() => setShowCreateGroupModal(false)} />
+        <SimpleInputModal title={t("app.modals.newGroupTitle")} placeholder={t("app.modals.newGroupPlaceholder")} confirmLabel={t("app.modals.newGroupConfirm")} onConfirm={handleCreateGroupConfirm} onCancel={() => setShowCreateGroupModal(false)} />
       )}
       {showJoinGroupModal && (
-        <SimpleInputModal title="Join Group" placeholder="Enter invite code" confirmLabel="Join" onConfirm={handleJoinGroupConfirm} onCancel={() => setShowJoinGroupModal(false)} />
+        <SimpleInputModal title={t("app.modals.joinGroupTitle")} placeholder={t("app.modals.joinGroupPlaceholder")} confirmLabel={t("app.modals.joinGroupConfirm")} onConfirm={handleJoinGroupConfirm} onCancel={() => setShowJoinGroupModal(false)} />
       )}
       {showCreateClassroomModal && (
-        <SimpleInputModal title="New Classroom" placeholder="e.g. Introduction to OOP" confirmLabel="Create Classroom" onConfirm={handleCreateClassroomConfirm} onCancel={() => setShowCreateClassroomModal(null)} />
+        <SimpleInputModal title={t("app.modals.newClassroomTitle")} placeholder={t("app.modals.newClassroomPlaceholder")} confirmLabel={t("app.modals.newClassroomConfirm")} onConfirm={handleCreateClassroomConfirm} onCancel={() => setShowCreateClassroomModal(null)} />
       )}
       {showAddFileModal && (
-        <SimpleInputModal title="New File" placeholder="filename.py" defaultValue={`file${files.length + 1}.py`} confirmLabel="Add File" onConfirm={handleAddFileConfirm} onCancel={() => setShowAddFileModal(false)} />
+        <SimpleInputModal title={t("app.modals.newFileTitle")} placeholder={t("app.modals.newFilePlaceholder")} defaultValue={`file${files.length + 1}.py`} confirmLabel={t("app.modals.newFileConfirm")} onConfirm={handleAddFileConfirm} onCancel={() => setShowAddFileModal(false)} />
       )}
 
       {showAdminPanel && (
@@ -1046,7 +1057,7 @@ export const MentorApp: React.FC = () => {
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4" style={{ color: "var(--amber)" }} />
-                <h2 className="text-sm font-semibold">User Management</h2>
+                <h2 className="text-sm font-semibold">{t("app.admin.title")}</h2>
               </div>
               <button onClick={() => setShowAdminPanel(false)} className="transition-colors" style={{ color: "var(--subtle)" }}>
                 <X className="h-4 w-4" />
@@ -1056,7 +1067,7 @@ export const MentorApp: React.FC = () => {
               {adminLoading ? (
                 <div className="flex items-center justify-center h-32 text-sm gap-2" style={{ color: "var(--muted)" }}>
                   <span className="h-4 w-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--indigo)", borderTopColor: "transparent" }} />
-                  Loading users…
+                  {t("app.admin.loadingUsers")}
                 </div>
               ) : (
                 adminUsers.map(u => (
@@ -1069,14 +1080,14 @@ export const MentorApp: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <Badge type={u.role === "teacher" ? "in-progress" : "default"} label={u.role} />
+                      <Badge type={u.role === "teacher" ? "in-progress" : "default"} label={t(`common.${u.role}`)} />
                       {u.email !== "madiyar.zmm@gmail.com" && (
                         <button
                           onClick={() => handleToggleRole(u.id, u.role)}
                           className="text-[11px] px-2 py-1 rounded-[8px] border transition-colors"
                           style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
                         >
-                          {u.role === "teacher" ? "→ Student" : "→ Teacher"}
+                          {u.role === "teacher" ? t("app.admin.toStudent") : t("app.admin.toTeacher")}
                         </button>
                       )}
                     </div>
@@ -1084,7 +1095,7 @@ export const MentorApp: React.FC = () => {
                 ))
               )}
               {!adminLoading && adminUsers.length === 0 && (
-                <div className="px-5 py-8 text-center text-xs" style={{ color: "var(--subtle)" }}>No users found.</div>
+                <div className="px-5 py-8 text-center text-xs" style={{ color: "var(--subtle)" }}>{t("app.admin.noUsers")}</div>
               )}
             </div>
           </div>
@@ -1157,6 +1168,7 @@ interface DashboardViewProps {
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, cosmetics, onSaveCosmetics }) => {
+  const { t } = useTranslation();
   // derive flat classroom list for teacher
   const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code })));
   // student: assignments across all classrooms
@@ -1164,10 +1176,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
 
   if (effectiveRole === "teacher") {
     const teacherStats = [
-      { label: "Classrooms",      value: String(allClassrooms.length), iconPath: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: "var(--indigo)" },
-      { label: "Total students",  value: String(totalStudents),        iconPath: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z", color: "oklch(0.55 0.22 308)" },
-      { label: "Live right now",  value: String(allClassrooms.reduce((s: number, c: any) => s + (c.active || 0), 0)), iconPath: "M13 10V3L4 14h7v7l9-11h-7z", color: "var(--mint)", live: true },
-      { label: "Pending reviews", value: "—",                          iconPath: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", color: "var(--amber)" },
+      { label: t("app.dashboard.teacher.statClassrooms"),      value: String(allClassrooms.length), iconPath: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: "var(--indigo)" },
+      { label: t("app.dashboard.teacher.statTotalStudents"),  value: String(totalStudents),        iconPath: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z", color: "oklch(0.55 0.22 308)" },
+      { label: t("app.dashboard.teacher.statLiveNow"),  value: String(allClassrooms.reduce((s: number, c: any) => s + (c.active || 0), 0)), iconPath: "M13 10V3L4 14h7v7l9-11h-7z", color: "var(--mint)", live: true },
+      { label: t("app.dashboard.teacher.statPendingReviews"), value: "—",                          iconPath: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", color: "var(--amber)" },
     ];
 
     if (groups.length === 0) {
@@ -1177,9 +1189,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
             <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--indigo-muted)", border: "1px solid oklch(55% 0.22 264 / 0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
               <Home className="h-6 w-6" style={{ color: "var(--indigo)" }} />
             </div>
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Create your first group</h2>
-            <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>Groups hold your classrooms and students. Create one and share the invite code.</p>
-            <button onClick={onCreateGroup} style={{ padding: "10px 24px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>+ Create Group</button>
+            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{t("app.dashboard.teacher.emptyTitle")}</h2>
+            <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>{t("app.dashboard.teacher.emptyBody")}</p>
+            <button onClick={onCreateGroup} style={{ padding: "10px 24px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("app.dashboard.teacher.emptyButton")}</button>
           </div>
         </div>
       );
@@ -1189,8 +1201,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
       <div style={{ flex: 1, overflowY: "auto", background: "var(--bg-2)" }}>
         {/* Header */}
         <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "24px 32px 20px" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""} 👋</h1>
-          <p style={{ fontSize: 13, color: "var(--text-3)" }}>Here's what's happening in your classrooms today.</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{user?.name ? t("app.dashboard.teacher.welcomeBackNamed", { name: user.name.split(" ")[0] }) : t("app.dashboard.teacher.welcomeBack")}</h1>
+          <p style={{ fontSize: 13, color: "var(--text-3)" }}>{t("app.dashboard.teacher.welcomeSub")}</p>
         </div>
 
         <div style={{ padding: "24px 32px" }}>
@@ -1207,7 +1219,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
                   {(s as any).live && (
                     <span style={{ fontSize: 10, fontWeight: 700, color: "var(--mint)", background: "var(--mint-10)", borderRadius: 20, padding: "2px 8px", display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--mint)", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
-                      LIVE
+                      {t("app.dashboard.teacher.live")}
                     </span>
                   )}
                 </div>
@@ -1219,13 +1231,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
 
           {/* Classrooms grid */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700 }}>Classrooms</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700 }}>{t("app.dashboard.teacher.classrooms")}</h2>
             {canCreate && (
-              <button onClick={onCreateGroup} style={{ fontSize: 12, fontWeight: 600, color: "var(--indigo)", background: "var(--indigo-10)", border: "none", borderRadius: "var(--r)", padding: "6px 14px", cursor: "pointer" }}>+ New</button>
+              <button onClick={onCreateGroup} style={{ fontSize: 12, fontWeight: 600, color: "var(--indigo)", background: "var(--indigo-10)", border: "none", borderRadius: "var(--r)", padding: "6px 14px", cursor: "pointer" }}>{t("app.dashboard.teacher.new")}</button>
             )}
           </div>
           {allClassrooms.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0", fontSize: 13, color: "var(--text-3)" }}>No classrooms yet. Create a group and add classrooms from the sidebar.</div>
+            <div style={{ textAlign: "center", padding: "40px 0", fontSize: 13, color: "var(--text-3)" }}>{t("app.dashboard.teacher.noClassrooms")}</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
               {allClassrooms.map((c: any) => {
@@ -1246,16 +1258,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
                       {(c.active || 0) > 0 && (
                         <span style={{ fontSize: 10, fontWeight: 700, color: "var(--mint)", background: "var(--mint-10)", borderRadius: 20, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
                           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--mint)", display: "inline-block" }} />
-                          {c.active} live
+                          {t("app.dashboard.teacher.liveCount", { count: c.active })}
                         </span>
                       )}
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 12 }}>{c.groupName} · {total} students</div>
+                    <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 12 }}>{c.groupName} · {t("app.dashboard.teacher.studentsCount", { count: total })}</div>
                     {/* Progress bar */}
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-3)", marginBottom: 4 }}>
-                        <span>Submissions</span><span>{pct}%</span>
+                        <span>{t("app.dashboard.teacher.submissions")}</span><span>{pct}%</span>
                       </div>
                       <div style={{ height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${pct}%`, background: "var(--indigo)", borderRadius: 2, transition: "width 600ms ease" }} />
@@ -1285,10 +1297,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
   const xpPct = lvlInfo ? (lvlInfo.next === lvlInfo.prev ? 100 : Math.round(((xp! - lvlInfo.prev) / (lvlInfo.next - lvlInfo.prev)) * 100)) : 0;
 
   const studentStats = [
-    { label: "Total XP",   value: xp !== null ? `${xp}` : "—",            sub: "points",  color: "var(--indigo)" },
-    { label: "Level",      value: lvlInfo ? String(lvlInfo.level) : "—",   sub: lvlInfo?.title || "", color: "oklch(0.60 0.22 308)" },
-    { label: "Streak",     value: "7",   sub: "days",    color: "var(--amber)" },
-    { label: "Classrooms", value: String(allClassrooms.length), sub: "joined", color: "var(--mint)" },
+    { label: t("app.dashboard.student.statTotalXp"),   value: xp !== null ? `${xp}` : "—",            sub: t("app.dashboard.student.statTotalXpSub"),  color: "var(--indigo)" },
+    { label: t("app.dashboard.student.statLevel"),      value: lvlInfo ? String(lvlInfo.level) : "—",   sub: lvlInfo ? t(`app.xp.levels.${lvlInfo.level}`) : "", color: "oklch(0.60 0.22 308)" },
+    { label: t("app.dashboard.student.statStreak"),     value: "7",   sub: t("app.dashboard.student.statStreakSub"),    color: "var(--amber)" },
+    { label: t("app.dashboard.student.statClassrooms"), value: String(allClassrooms.length), sub: t("app.dashboard.student.statClassroomsSub"), color: "var(--mint)" },
   ];
 
   if (groups.length === 0) {
@@ -1298,9 +1310,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
           <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--indigo-muted)", border: "1px solid oklch(55% 0.22 264 / 0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
             <Home className="h-6 w-6" style={{ color: "var(--indigo)" }} />
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Join a group to get started</h2>
-          <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>Ask your teacher for an invite code to join a group.</p>
-          <button onClick={onJoinGroup} style={{ padding: "10px 24px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Join with Code</button>
+          <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{t("app.dashboard.student.emptyTitle")}</h2>
+          <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>{t("app.dashboard.student.emptyBody")}</p>
+          <button onClick={onJoinGroup} style={{ padding: "10px 24px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t("app.dashboard.student.emptyButton")}</button>
         </div>
       </div>
     );
@@ -1336,8 +1348,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
             <div style={{ position: "absolute", bottom: 8, right: 8, width: 12, height: 12, borderRadius: "50%", background: "var(--mint)", border: "2px solid var(--bg)", animation: "pulseDot 2s ease-in-out infinite" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{user?.name || "Student"}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 10 }}>{lvlInfo?.title || "Novice"} · {xp ?? 0} XP</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{user?.name || t("app.dashboard.student.fallbackName")}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 10 }}>{t("app.dashboard.student.xpLine", { title: t(`app.xp.levels.${lvlInfo?.level ?? 1}`), xp: xp ?? 0 })}</div>
             {/* XP bar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.2)", borderRadius: 3, overflow: "hidden" }}>
@@ -1350,7 +1362,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
             onClick={() => setShopOpen(o => !o)}
             style={{ padding: "8px 16px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "var(--r)", fontSize: 12, fontWeight: 600, color: "#fff", cursor: "pointer", backdropFilter: "blur(4px)" }}
           >
-            {shopOpen ? "Close Shop" : "Customize"}
+            {shopOpen ? t("app.dashboard.student.closeShop") : t("app.dashboard.student.customize")}
           </button>
         </div>
       </div>
@@ -1360,21 +1372,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
         <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "20px 32px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Avatar Frame</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("app.dashboard.student.shopFrame")}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {XP_FRAMES.map(f => {
                   const locked = !canAfford(f.cost);
                   const isSelected = selectedFrame === f.id;
+                  const name = t(`app.xp.frames.${f.id}`);
                   return (
                     <button
                       key={f.id}
                       disabled={locked}
                       onClick={() => onSaveCosmetics({ ...cosmetics, frame: f.id })}
                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 10px", borderRadius: 8, border: `2px solid ${isSelected ? f.color : "var(--border)"}`, background: isSelected ? "var(--bg-2)" : "transparent", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.4 : 1 }}
-                      title={locked ? `Locked — need ${f.cost} XP` : f.name}
+                      title={locked ? t("app.dashboard.student.locked", { cost: f.cost }) : name}
                     >
                       <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${f.color}`, boxShadow: f.glow !== "none" ? f.glow : undefined }} />
-                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{f.name}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{name}</span>
                       {f.cost > 0 && <span style={{ fontSize: 9, color: locked ? "var(--text-3)" : "var(--amber)" }}>{f.cost} XP</span>}
                     </button>
                   );
@@ -1382,21 +1395,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Background</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("app.dashboard.student.shopBackground")}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {XP_BGTYPES.map(b => {
                   const locked = !canAfford(b.cost);
                   const isSelected = selectedBg === b.id;
+                  const name = t(`app.xp.backgrounds.${b.id}`);
                   return (
                     <button
                       key={b.id}
                       disabled={locked}
                       onClick={() => onSaveCosmetics({ ...cosmetics, background: b.id })}
                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: `2px solid ${isSelected ? "var(--indigo)" : "var(--border)"}`, background: "transparent", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.4 : 1 }}
-                      title={locked ? `Locked — need ${b.cost} XP` : b.name}
+                      title={locked ? t("app.dashboard.student.locked", { cost: b.cost }) : name}
                     >
                       <div style={{ width: 32, height: 20, borderRadius: 4, background: b.bg }} />
-                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{b.name}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{name}</span>
                       {b.cost > 0 && <span style={{ fontSize: 9, color: locked ? "var(--text-3)" : "var(--amber)" }}>{b.cost} XP</span>}
                     </button>
                   );
@@ -1404,21 +1418,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Avatar Aura</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("app.dashboard.student.shopAura")}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {XP_AURAS.map(a => {
                   const locked = !canAfford(a.cost);
                   const isSelected = selectedAura === a.id;
+                  const name = t(`app.xp.auras.${a.id}`);
                   return (
                     <button
                       key={a.id}
                       disabled={locked}
                       onClick={() => onSaveCosmetics({ ...cosmetics, aura: a.id })}
                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: `2px solid ${isSelected ? "oklch(0.65 0.20 308)" : "var(--border)"}`, background: "transparent", cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.4 : 1, minWidth: 64 }}
-                      title={locked ? `Locked — need ${a.cost} XP` : a.name}
+                      title={locked ? t("app.dashboard.student.locked", { cost: a.cost }) : name}
                     >
                       <div style={{ width: 28, height: 28, borderRadius: "50%", animation: a.anim, ...a.preview }} />
-                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{a.name}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-3)" }}>{name}</span>
                       {a.cost > 0 && <span style={{ fontSize: 9, color: locked ? "var(--text-3)" : "var(--amber)" }}>{a.cost} XP</span>}
                     </button>
                   );
@@ -1444,7 +1459,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
         <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
           <div>
             {/* Achievements */}
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Achievements</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t("app.dashboard.student.achievements")}</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }}>
               {ACHIEVEMENTS.map(a => (
                 <div key={a.id} style={{ background: "var(--bg)", border: `1px solid ${a.unlocked ? RARITY_COLOR[a.rarity] + "40" : "var(--border)"}`, borderRadius: "var(--r)", padding: "14px 10px", textAlign: "center", opacity: a.unlocked ? 1 : 0.45 }}>
@@ -1453,8 +1468,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
                       <a.Icon size={18} color={a.unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)"} />
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: a.unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)", marginBottom: 2 }}>{a.name}</div>
-                  <div style={{ fontSize: 10, color: "var(--text-3)", lineHeight: 1.4 }}>{a.desc}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: a.unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)", marginBottom: 2 }}>{t(`app.xp.achievements.${a.id}.name`)}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-3)", lineHeight: 1.4 }}>{t(`app.xp.achievements.${a.id}.desc`)}</div>
                 </div>
               ))}
             </div>
@@ -1462,7 +1477,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
             {/* Activity graph */}
             {activityDays.length > 0 && (
               <div>
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Activity</h3>
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t("app.dashboard.student.activity")}</h3>
                 <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: "16px 20px" }}>
                   <ActivityGraph days={activityDays} />
                 </div>
@@ -1472,7 +1487,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
 
           {/* Assignments list */}
           <div>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>My Classrooms</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t("app.dashboard.student.myClassrooms")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {allClassrooms.map((c: any) => (
                 <button
@@ -1491,8 +1506,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
               ))}
               {allClassrooms.length === 0 && (
                 <div style={{ textAlign: "center", padding: "24px 0", fontSize: 12, color: "var(--text-3)" }}>
-                  No classrooms yet.{" "}
-                  <button onClick={onJoinGroup} style={{ color: "var(--indigo)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>Join one →</button>
+                  {t("app.dashboard.student.noClassrooms")}{" "}
+                  <button onClick={onJoinGroup} style={{ color: "var(--indigo)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>{t("app.dashboard.student.joinOne")}</button>
                 </div>
               )}
             </div>
@@ -1523,6 +1538,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
   classroom, assignments, canCreate, userRole, userId,
   submissionsByAssignment, groupMembers, onCreateAssignment, onOpenAssignment, onBack, onDelete,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"assignments" | "students">("assignments");
 
   return (
@@ -1531,9 +1547,9 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
       <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "20px 32px" }}>
         {/* Breadcrumb */}
         <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 12, padding: 0 }}>Dashboard</button>
+          <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 12, padding: 0 }}>{t("app.classroom.breadcrumbDashboard")}</button>
           <span>›</span>
-          <span>Classrooms</span>
+          <span>{t("app.classroom.breadcrumbClassrooms")}</span>
           <span>›</span>
           <span style={{ color: "var(--text-2)" }}>{classroom.name}</span>
         </div>
@@ -1542,12 +1558,12 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
             <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>{classroom.name}</h1>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <code style={{ fontFamily: "DM Mono, monospace", background: "var(--bg-2)", border: "1px solid var(--border)", padding: "3px 10px", borderRadius: 6, fontSize: 11, color: "var(--text-2)" }}>
-                Invite: {classroom.invite_code || classroom.code || "—"}
+                {t("app.classroom.invite", { code: classroom.invite_code || classroom.code || "—" })}
               </code>
               {(classroom.active || 0) > 0 && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: "var(--mint)", background: "var(--mint-10)", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--mint)", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
-                  {classroom.active} live now
+                  {t("app.classroom.liveNow", { count: classroom.active })}
                 </span>
               )}
             </div>
@@ -1556,7 +1572,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
             {canCreate && onDelete && (
               <button
                 onClick={onDelete}
-                title="Delete classroom"
+                title={t("app.classroom.deleteClassroom")}
                 style={{ padding: "9px 12px", background: "transparent", color: "var(--text-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
                 onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.borderColor = "#ef4444"; }}
                 onMouseLeave={e => { e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "var(--border)"; }}
@@ -1566,7 +1582,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
             )}
             {canCreate && (
               <button onClick={onCreateAssignment} style={{ padding: "9px 18px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
-                + New Assignment
+                {t("app.classroom.newAssignment")}
               </button>
             )}
           </div>
@@ -1584,7 +1600,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
                 borderBottom: activeTab === tab ? "2px solid var(--indigo)" : "2px solid transparent",
                 marginBottom: -1,
               }}
-            >{tab}</button>
+            >{tab === "assignments" ? t("app.classroom.tabAssignments") : t("app.classroom.tabStudents")}</button>
           ))}
         </div>
       </div>
@@ -1617,7 +1633,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                      {isHw && <span style={{ flexShrink: 0, padding: "1px 7px", fontSize: 10, fontWeight: 700, background: "var(--indigo-muted)", color: "var(--indigo)", borderRadius: 20 }}>HW</span>}
+                      {isHw && <span style={{ flexShrink: 0, padding: "1px 7px", fontSize: 10, fontWeight: 700, background: "var(--indigo-muted)", color: "var(--indigo)", borderRadius: 20 }}>{t("app.classroom.hw")}</span>}
                       <span style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
@@ -1632,11 +1648,11 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
                               strokeLinecap="round"
                             />
                           </svg>
-                          <span style={{ fontSize: 11, fontFamily: "DM Mono, monospace", color: pct >= 100 ? "var(--mint)" : "var(--text-3)" }}>{submittedCount} submitted</span>
+                          <span style={{ fontSize: 11, fontFamily: "DM Mono, monospace", color: pct >= 100 ? "var(--mint)" : "var(--text-3)" }}>{t("app.classroom.submittedCount", { count: submittedCount })}</span>
                         </div>
                       )}
-                      {userRole === "student" && mySub && <Badge type={late ? "timeout" : "success"} label={late ? "Submitted Late" : "Submitted ✓"} />}
-                      {userRole === "student" && !mySub && <Badge type="not-started" label="Not started" />}
+                      {userRole === "student" && mySub && <Badge type={late ? "timeout" : "success"} label={late ? t("app.classroom.submittedLate") : t("app.classroom.submitted")} />}
+                      {userRole === "student" && !mySub && <Badge type="not-started" label={t("app.classroom.notStarted")} />}
                     </div>
                   </div>
                   {a.description && <p style={{ marginTop: 6, fontSize: 12, color: "var(--text-3)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{a.description}</p>}
@@ -1657,7 +1673,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
             })}
             {assignments.length === 0 && (
               <div style={{ textAlign: "center", padding: "48px 0", fontSize: 13, color: "var(--text-3)" }}>
-                No assignments yet.{canCreate ? ' Click "+ New Assignment" to create the first one.' : ""}
+                {t("app.classroom.noAssignments")}{canCreate ? t("app.classroom.noAssignmentsHint") : ""}
               </div>
             )}
           </div>
@@ -1666,10 +1682,10 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
         {activeTab === "students" && (
           <div>
             <div style={{ fontSize: 13, color: "var(--text-3)", marginBottom: 16 }}>
-              {groupMembers.length} student{groupMembers.length !== 1 ? "s" : ""} enrolled
+              {t("app.classroom.studentsEnrolled", { count: groupMembers.length })}
             </div>
             {groupMembers.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "48px 0", fontSize: 13, color: "var(--text-3)" }}>No students enrolled yet.</div>
+              <div style={{ textAlign: "center", padding: "48px 0", fontSize: 13, color: "var(--text-3)" }}>{t("app.classroom.noStudents")}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {groupMembers.map((m: any) => (
@@ -1685,10 +1701,10 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
                       {m.online ? (
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--mint)", background: "var(--mint-10)", borderRadius: 20, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
                           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--mint)", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
-                          Live
+                          {t("app.classroom.live")}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 11, color: "var(--text-3)" }}>Offline</span>
+                        <span style={{ fontSize: 11, color: "var(--text-3)" }}>{t("app.classroom.offline")}</span>
                       )}
                     </div>
                   </div>
@@ -1722,6 +1738,7 @@ const SUBMISSION_STATUS_STYLE: Record<string, { bg: string; color: string; dot: 
 const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
   submission, assignmentTitle, userRole, onClose, onOpenInEditor, onSaveFeedback,
 }) => {
+  const { t } = useTranslation();
   const [feedbackDraft, setFeedbackDraft] = useState<string>(submission?.feedback || "");
   const [savingFeedback, setSavingFeedback] = useState(false);
 
@@ -1753,7 +1770,7 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
     <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", background: "var(--bg)", height: "100%" }}>
       <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-2)" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>{assignmentTitle || "Submission"}</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{assignmentTitle || t("app.submissionDetail.fallbackTitle")}</div>
           <div style={{ fontSize: 11, color: "var(--text-3)" }}>
             {submission.submitter_name ? `${submission.submitter_name} · ` : ""}
             {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : ""}
@@ -1764,7 +1781,7 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
             <button
               onClick={onOpenInEditor}
               style={{ padding: "5px 12px", background: "var(--indigo)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
-            >Open in Editor</button>
+            >{t("app.submissionDetail.openInEditor")}</button>
           )}
           <button
             onClick={onClose}
@@ -1780,24 +1797,24 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
           {submission.status_display || submission.status}
         </span>
         {typeof returncode === "number" && (
-          <span><strong style={{ color: "var(--text-2)" }}>exit:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{returncode}</code></span>
+          <span><strong style={{ color: "var(--text-2)" }}>{t("app.submissionDetail.exit")}</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{returncode}</code></span>
         )}
-        {timedOut && <span style={{ color: "var(--amber)" }}>⏱ timed out</span>}
-        {testPassed === true && <span style={{ color: "var(--mint)" }}>✓ tests passed</span>}
-        {testPassed === false && <span style={{ color: "var(--rose)" }}>✗ tests failed</span>}
-        {testPassed === null && <span>no tests configured</span>}
-        <span><strong style={{ color: "var(--text-2)" }}>id:</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{String(submission.id).slice(0, 8)}</code></span>
+        {timedOut && <span style={{ color: "var(--amber)" }}>{t("app.submissionDetail.timedOut")}</span>}
+        {testPassed === true && <span style={{ color: "var(--mint)" }}>{t("app.submissionDetail.testsPassed")}</span>}
+        {testPassed === false && <span style={{ color: "var(--rose)" }}>{t("app.submissionDetail.testsFailed")}</span>}
+        {testPassed === null && <span>{t("app.submissionDetail.noTests")}</span>}
+        <span><strong style={{ color: "var(--text-2)" }}>{t("app.submissionDetail.id")}</strong> <code style={{ fontFamily: "DM Mono, monospace" }}>{String(submission.id).slice(0, 8)}</code></span>
       </div>
 
       <div style={{ flex: 1, padding: "16px 20px" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Code</div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{t("app.submissionDetail.code")}</div>
         <pre style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px 16px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text)", overflow: "auto", lineHeight: 1.7, maxHeight: 360, whiteSpace: "pre" }}>
-          {submission.code || "(no code)"}
+          {submission.code || t("app.submissionDetail.noCode")}
         </pre>
 
         {stdout && (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stdout</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("app.submissionDetail.stdout")}</div>
             <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 180, whiteSpace: "pre-wrap" }}>
               {stdout}
             </pre>
@@ -1806,7 +1823,7 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
 
         {stderr && (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>stderr / error</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("app.submissionDetail.stderr")}</div>
             <pre style={{ background: "var(--rose-10)", border: "1px solid var(--rose-muted)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: "var(--rose)", overflow: "auto", lineHeight: 1.6, maxHeight: 240, whiteSpace: "pre-wrap" }}>
               {stderr}
             </pre>
@@ -1821,7 +1838,7 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
 
         {testOutput && (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Auto-grader output</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("app.submissionDetail.autoGraderOutput")}</div>
             <pre style={{ background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "10px 14px", fontSize: 12, fontFamily: "DM Mono, monospace", color: testPassed ? "var(--mint)" : "var(--text-2)", overflow: "auto", lineHeight: 1.6, maxHeight: 200, whiteSpace: "pre-wrap" }}>
               {testOutput}
             </pre>
@@ -1830,14 +1847,14 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
 
         <div style={{ marginTop: 18, background: "var(--amber-10)", border: "1px solid var(--amber-muted)", borderRadius: "var(--r)", padding: "12px 14px" }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            {userRole === "teacher" ? "Mentor feedback" : "Feedback from your mentor"}
+            {userRole === "teacher" ? t("app.submissionDetail.feedbackTeacher") : t("app.submissionDetail.feedbackStudent")}
           </div>
           {userRole === "teacher" ? (
             <>
               <textarea
                 value={feedbackDraft}
                 onChange={e => setFeedbackDraft(e.target.value)}
-                placeholder="Leave feedback for this submission…"
+                placeholder={t("app.submissionDetail.feedbackPlaceholder")}
                 rows={4}
                 style={{ width: "100%", boxSizing: "border-box", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 10px", fontSize: 12, color: "var(--text)", fontFamily: "inherit", resize: "vertical" }}
               />
@@ -1847,13 +1864,13 @@ const SubmissionDetailPanel: React.FC<SubmissionDetailPanelProps> = ({
                   disabled={savingFeedback || feedbackDraft === (submission.feedback || "")}
                   style={{ padding: "5px 14px", background: "var(--amber)", color: "#fff", border: "none", borderRadius: "var(--r)", fontSize: 11, fontWeight: 600, cursor: savingFeedback ? "wait" : "pointer", opacity: (savingFeedback || feedbackDraft === (submission.feedback || "")) ? 0.55 : 1 }}
                 >
-                  {savingFeedback ? "Saving…" : "Save feedback"}
+                  {savingFeedback ? t("app.submissionDetail.saving") : t("app.submissionDetail.saveFeedback")}
                 </button>
               </div>
             </>
           ) : (
             <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>
-              {submission.feedback || <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>No feedback yet.</span>}
+              {submission.feedback || <span style={{ color: "var(--text-3)", fontStyle: "italic" }}>{t("app.submissionDetail.noFeedback")}</span>}
             </p>
           )}
         </div>
@@ -1879,10 +1896,16 @@ interface SubmissionsViewProps {
 const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   classroom, assignments, submissions, selectedSubmission, onSelectSubmission, onOpenAssignment, onBack, userRole, onSaveFeedback,
 }) => {
+  const { t } = useTranslation();
   const [filterAssignment, setFilterAssignment] = useState<string>("all");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const statusStyle = SUBMISSION_STATUS_STYLE;
+  // Map a raw submission status to its localized label.
+  const statusLabel = (st: string) =>
+    st === "success" ? t("app.submissions.statusSuccess")
+      : st === "timeout" ? t("app.submissions.statusTimeout")
+      : t("app.submissions.statusError");
 
   const filtered = filterAssignment === "all" ? submissions : submissions.filter(s => s.assignment_id === filterAssignment);
 
@@ -1891,7 +1914,7 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   for (const s of filtered) {
     const uid = s.user_id || s.user_email || "unknown";
     if (!studentMap.has(uid)) {
-      studentMap.set(uid, { id: uid, name: s.user_name || s.user_email || "Student", email: s.user_email || "", subs: [] });
+      studentMap.set(uid, { id: uid, name: s.user_name || s.user_email || t("common.student"), email: s.user_email || "", subs: [] });
     }
     studentMap.get(uid)!.subs.push(s);
   }
@@ -1911,14 +1934,14 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
       {/* Header */}
       <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "20px 32px" }}>
         <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 12, padding: 0 }}>Dashboard</button>
+          <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 12, padding: 0 }}>{t("app.submissions.breadcrumbDashboard")}</button>
           <span>›</span>
           <span>{classroom.name}</span>
           <span>›</span>
-          <span style={{ color: "var(--text-2)" }}>Submissions</span>
+          <span style={{ color: "var(--text-2)" }}>{t("app.submissions.breadcrumbSubmissions")}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h1 style={{ fontSize: 18, fontWeight: 700 }}>Submissions</h1>
+          <h1 style={{ fontSize: 18, fontWeight: 700 }}>{t("app.submissions.title")}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {["success", "error", "timeout"].map(st => {
               const count = submissions.filter(s => s.status === st).length;
@@ -1926,7 +1949,7 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               return (
                 <span key={st} style={{ fontSize: 11, fontWeight: 600, background: ss.bg, color: ss.color, borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: ss.dot, display: "inline-block" }} />
-                  {count} {st}
+                  {count} {statusLabel(st)}
                 </span>
               );
             })}
@@ -1937,7 +1960,7 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
           <button
             onClick={() => { setFilterAssignment("all"); setSelectedStudentId(null); onSelectSubmission(null); }}
             style={{ padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer", background: filterAssignment === "all" ? "var(--indigo)" : "var(--bg-3)", color: filterAssignment === "all" ? "#fff" : "var(--text-3)" }}
-          >All</button>
+          >{t("app.submissions.all")}</button>
           {assignments.map(a => (
             <button
               key={a.id}
@@ -1955,11 +1978,11 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         <div style={{ borderRight: "1px solid var(--border)", overflowY: "auto", background: "var(--bg-2)" }}>
           <div style={{ padding: "10px 12px 6px", borderBottom: "1px solid var(--border)" }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: "var(--subtle)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              {students.length} student{students.length !== 1 ? "s" : ""}
+              {t("app.submissions.studentsCount", { count: students.length })}
             </span>
           </div>
           {students.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 16px", fontSize: 12, color: "var(--text-3)" }}>No submissions yet.</div>
+            <div style={{ textAlign: "center", padding: "48px 16px", fontSize: 12, color: "var(--text-3)" }}>{t("app.submissions.noSubmissions")}</div>
           ) : (
             students.map(stu => {
               const latestSub = stu.subs.reduce((a: any, b: any) => new Date(a.submitted_at) > new Date(b.submitted_at) ? a : b, stu.subs[0]);
@@ -1983,12 +2006,12 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 32 }}>
                     <span style={{ fontSize: 10, color: "var(--text-3)" }}>
-                      {stu.subs.length} attempt{stu.subs.length !== 1 ? "s" : ""}
+                      {t("app.submissions.attempts", { count: stu.subs.length })}
                       {solvedCount > 0 && <span style={{ color: "var(--mint)", marginLeft: 4 }}>· {solvedCount} ✓</span>}
                     </span>
                     <span style={{ fontSize: 10, fontWeight: 700, background: ss.bg, color: ss.color, borderRadius: 10, padding: "1px 6px", display: "inline-flex", alignItems: "center", gap: 3 }}>
                       <span style={{ width: 4, height: 4, borderRadius: "50%", background: ss.dot, display: "inline-block" }} />
-                      {latestSub?.status}
+                      {latestSub?.status ? statusLabel(latestSub.status) : ""}
                     </span>
                   </div>
                 </button>
@@ -2003,7 +2026,7 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
             <svg width="32" height="32" fill="none" stroke="var(--border-2)" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span style={{ fontSize: 13, color: "var(--text-3)" }}>Select a student to view their log</span>
+            <span style={{ fontSize: 13, color: "var(--text-3)" }}>{t("app.submissions.selectStudent")}</span>
           </div>
         ) : (
           <div style={{ borderRight: selectedSubmission ? "1px solid var(--border)" : "none", overflowY: "auto", background: "var(--bg)" }}>
@@ -2017,8 +2040,8 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                 </div>
               </div>
               <div style={{ display: "flex", gap: 12, marginTop: 8, paddingLeft: 42 }}>
-                <span style={{ fontSize: 11, color: "var(--text-3)" }}><span style={{ fontWeight: 600, color: "var(--text-2)" }}>{studentSubs.length}</span> attempts</span>
-                <span style={{ fontSize: 11, color: "var(--text-3)" }}><span style={{ fontWeight: 600, color: "var(--mint)" }}>{studentSubs.filter(s => s.status === "success").length}</span> solved</span>
+                <span style={{ fontSize: 11, color: "var(--text-3)" }}><span style={{ fontWeight: 600, color: "var(--text-2)" }}>{studentSubs.length}</span> {t("app.submissions.attemptsLabel")}</span>
+                <span style={{ fontSize: 11, color: "var(--text-3)" }}><span style={{ fontWeight: 600, color: "var(--mint)" }}>{studentSubs.filter(s => s.status === "success").length}</span> {t("app.submissions.solvedLabel")}</span>
               </div>
             </div>
 
@@ -2043,12 +2066,12 @@ const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ fontSize: 10, color: "var(--subtle)", fontFamily: "DM Mono, monospace" }}>#{studentSubs.length - idx}</span>
                         <span style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
-                          {asg?.title || "Unknown assignment"}
+                          {asg?.title || t("app.submissions.unknownAssignment")}
                         </span>
                       </div>
                       <span style={{ fontSize: 10, fontWeight: 700, background: ss.bg, color: ss.color, borderRadius: 10, padding: "1px 7px", display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
                         <span style={{ width: 4, height: 4, borderRadius: "50%", background: ss.dot, display: "inline-block" }} />
-                        {s.status}
+                        {statusLabel(s.status)}
                       </span>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--border-2)", marginTop: 1 }}>
@@ -2126,6 +2149,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   onSubmit, onBack, onSaveFeedback,
   failedAttempts, hint, hintLoading, onGetHint, onDismissHint, xp,
 }) => {
+  const { t } = useTranslation();
   const [editorMode, setEditorMode] = useState<"code" | "draw">("code");
   const [handRaised, setHandRaised] = useState(false);
   const [rightOpen, setRightOpen] = useState(true);
@@ -2136,21 +2160,34 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(176);
   const [lastRunInfo, setLastRunInfo] = useState<{ exitCode: number; elapsed: number } | null>(null);
-  const [stdinText, setStdinText] = useState("");
-  const [stdinOpen, setStdinOpen] = useState(false);
   const [pyLoading, setPyLoading] = useState(false);
+  // Interactive stdin: awaitingInput is true while the running program is
+  // blocked on input(); the user types into a terminal input line.
+  const [awaitingInput, setAwaitingInput] = useState(false);
+  const [inputValue, setInputValue] = useState("");
   const terminalRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const lineId = useRef(0);
   const runCount = useRef(0);
   const runStartRef = useRef(0);
   const dragStateRef = useRef<{ startY: number; startH: number } | null>(null);
-  const codeNeedsInput = /\binput\s*\(/.test(code);
 
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [streamLines]);
+  }, [streamLines, awaitingInput]);
+
+  // Focus the terminal input line as soon as the program asks for input.
+  useEffect(() => {
+    if (awaitingInput) inputRef.current?.focus();
+  }, [awaitingInput]);
+
+  // Close any open run socket when leaving the assignment.
+  useEffect(() => {
+    return () => { wsRef.current?.close(); };
+  }, []);
 
   // Begin downloading Pyodide as soon as the assignment view mounts so the
   // first Run feels instant.
@@ -2163,12 +2200,14 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     return off;
   }, []);
 
-  // Auto-open the stdin panel when input() appears in code.
-  useEffect(() => {
-    if (codeNeedsInput && !stdinOpen) setStdinOpen(true);
-  }, [codeNeedsInput, stdinOpen]);
+  const appendLine = (text: string, type: StreamLine["type"]) => {
+    setStreamLines(prev => [...prev, { id: lineId.current++, text, type }]);
+  };
 
-  const handleRunLocal = async () => {
+  // Run the code on the server's interactive sandbox. Output streams back
+  // over the WebSocket; when the program hits input(), the server sends an
+  // input_request and we let the user type a line right in the terminal.
+  const handleRun = () => {
     if (isRunning) return;
 
     runCount.current += 1;
@@ -2176,38 +2215,74 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
     if (thisRun === 1) {
       setStreamLines([]);
     } else {
-      setStreamLines(prev => [...prev, { id: lineId.current++, text: `── Run ${thisRun} ──\n`, type: "info" }]);
-    }
-    if (pyLoading) {
-      setStreamLines(prev => [...prev, { id: lineId.current++, text: "Loading Python runtime (~10MB, first run only)…\n", type: "info" }]);
+      appendLine(`${t("app.assignment.runSeparator", { n: thisRun })}\n`, "info");
     }
     setIsRunning(true);
     setLastRunInfo(null);
+    setAwaitingInput(false);
+    setInputValue("");
     runStartRef.current = Date.now();
 
-    const stdinLines = stdinText.length > 0 ? stdinText.split(/\r?\n/) : [];
-    const onOutput = (e: RunOutput) => {
-      setStreamLines(prev => [...prev, { id: lineId.current++, text: e.text, type: e.type }]);
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(getSandboxWsUrl());
+    } catch {
+      appendLine(`${t("app.assignment.runConnectionFailed")}\n`, "stderr");
+      setIsRunning(false);
+      return;
+    }
+    wsRef.current = ws;
+
+    ws.onopen = () => ws.send(JSON.stringify({ code }));
+
+    ws.onmessage = (ev) => {
+      let msg: any;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+      if (msg.type === "stdout") {
+        appendLine(msg.text, "stdout");
+      } else if (msg.type === "stderr") {
+        appendLine(msg.text, "stderr");
+      } else if (msg.type === "input_request") {
+        if (msg.prompt) appendLine(msg.prompt, "stdout");
+        setAwaitingInput(true);
+      } else if (msg.type === "done") {
+        const elapsed = parseFloat(((Date.now() - runStartRef.current) / 1000).toFixed(2));
+        setLastRunInfo({ exitCode: msg.exit_code ?? 0, elapsed });
+        setIsRunning(false);
+        setAwaitingInput(false);
+        ws.close();
+      }
     };
 
-    try {
-      const result = await runInteractive({ code, stdinLines, onOutput });
-      setLastRunInfo({ exitCode: result.exit_code, elapsed: result.elapsed });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setStreamLines(prev => [...prev, { id: lineId.current++, text: msg + "\n", type: "stderr" }]);
-    } finally {
+    ws.onerror = () => {
+      appendLine(`${t("app.assignment.runConnectionError")}\n`, "stderr");
+    };
+
+    ws.onclose = () => {
       setIsRunning(false);
-    }
+      setAwaitingInput(false);
+      if (wsRef.current === ws) wsRef.current = null;
+    };
   };
 
-  // Pyodide on the main thread can't be hard-cancelled mid-execution. The
-  // Stop button is left in place but currently just marks the run as
-  // stopped in the UI; execution finishes in the background.
+  // Send the current input line to the running program and echo it locally
+  // so the terminal reads like one continuous session.
+  const submitInput = () => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !awaitingInput) return;
+    ws.send(JSON.stringify({ type: "input_response", value: inputValue }));
+    appendLine(inputValue + "\n", "stdout");
+    setInputValue("");
+    setAwaitingInput(false);
+  };
+
+  // Closing the socket makes the server kill the subprocess.
   const handleStop = () => {
     if (!isRunning) return;
-    setStreamLines(prev => [...prev, { id: lineId.current++, text: "^C (run will finish in background)\n", type: "stderr" }]);
+    wsRef.current?.close();
+    appendLine("^C\n", "stderr");
     setIsRunning(false);
+    setAwaitingInput(false);
   };
 
   const handleTerminalDragStart = (e: React.MouseEvent) => {
@@ -2273,7 +2348,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
             className="px-2.5 py-1 text-xs rounded-[8px] border transition-colors"
             style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
           >
-            ← Back
+            {t("app.assignment.back")}
           </button>
           <span className="font-semibold">{assignment.title}</span>
           {isHomework && <DeadlineBadge dueAt={assignment.due_at} />}
@@ -2281,7 +2356,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
         {userRole === "student" && xp != null && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[10px]" style={{ background: "var(--amber-10)", border: "1px solid var(--amber-muted)" }}>
             <Zap className="h-3 w-3" style={{ color: "var(--amber)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--amber)" }}>{xp} XP</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--amber)" }}>{t("app.assignment.xp", { xp })}</span>
           </div>
         )}
       </div>
@@ -2292,9 +2367,11 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
           className="px-4 py-2 border-b flex items-center justify-between text-xs"
           style={{ background: "var(--indigo-muted)", borderColor: "oklch(55% 0.22 264 / 0.3)", color: "var(--indigo)" }}
         >
-          <span>📋 Homework — Due {formatDueDate(assignment.due_at)} · {formatTimeRemaining(assignment.due_at)}</span>
+          <span>{t("app.assignment.homeworkBanner", { date: formatDueDate(assignment.due_at), remaining: formatTimeRemaining(assignment.due_at) })}</span>
           <span style={{ color: "oklch(55% 0.22 264 / 0.7)" }}>
-            {submittedCount}/{groupMembers.length > 0 ? groupMembers.length : "?"} submitted
+            {groupMembers.length > 0
+              ? t("app.assignment.submittedRatio", { submitted: submittedCount, total: groupMembers.length })
+              : t("app.assignment.submittedRatioUnknown", { submitted: submittedCount })}
           </span>
         </div>
       )}
@@ -2309,13 +2386,13 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
         >
           <span>
             {deadlineUrgency === "overdue"
-              ? "⚠ This assignment is overdue"
-              : `Due: ${formatDueDate(assignment.due_at)} — ${formatTimeRemaining(assignment.due_at)}`}
+              ? t("app.assignment.overdue")
+              : t("app.assignment.dueLine", { date: formatDueDate(assignment.due_at), remaining: formatTimeRemaining(assignment.due_at) })}
           </span>
           {mySub && (
             <span style={{ color: isSubmittedLate(mySub.submitted_at, assignment.due_at) ? "var(--amber)" : "var(--mint)" }}>
-              Submitted {new Date(mySub.submitted_at).toLocaleString()}
-              {isSubmittedLate(mySub.submitted_at, assignment.due_at) ? " (Late)" : " ✓"}
+              {t("app.assignment.submittedAt", { date: new Date(mySub.submitted_at).toLocaleString() })}
+              {isSubmittedLate(mySub.submitted_at, assignment.due_at) ? t("app.assignment.late") : t("app.assignment.onTime")}
             </span>
           )}
         </div>
@@ -2346,7 +2423,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     border: editorMode === mode ? "1px solid oklch(55% 0.22 264 / 0.3)" : "1px solid transparent",
                   }}
                 >
-                  {mode}
+                  {mode === "code" ? t("app.assignment.modeCode") : t("app.assignment.modeDraw")}
                 </button>
               ))}
             </div>
@@ -2410,20 +2487,20 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     style={{ background: "#ef4444", color: "#fff", boxShadow: "0 0 12px #ef444440" }}
                   >
                     <Square className="h-3 w-3" />
-                    Stop
+                    {t("app.assignment.stop")}
                   </button>
                 ) : (
                   <button
-                    onClick={handleRunLocal}
+                    onClick={handleRun}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[10px] font-semibold transition-all"
                     style={{ background: "var(--indigo)", color: "#fff", boxShadow: "0 0 12px oklch(55% 0.22 264 / 0.35)" }}
                   >
                     <Play className="h-3 w-3" />
-                    Run
+                    {t("app.assignment.run")}
                   </button>
                 )}
                 <button
-                  onClick={() => onSubmit(stdinText.length > 0 ? stdinText.split(/\r?\n/) : [])}
+                  onClick={() => onSubmit([])}
                   disabled={loading}
                   className="px-3 py-1.5 text-xs rounded-[10px] border font-medium disabled:opacity-60 transition-colors"
                   style={{
@@ -2432,20 +2509,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     color: isHomework ? "var(--indigo)" : "var(--muted)",
                   }}
                 >
-                  {isHomework ? "Submit Homework" : "Submit"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStdinOpen(v => !v)}
-                  className="px-2.5 py-1.5 text-xs rounded-[10px] border transition-colors"
-                  style={{
-                    borderColor: stdinOpen ? "var(--indigo)" : "var(--border)",
-                    background: "transparent",
-                    color: stdinOpen ? "var(--indigo)" : "var(--muted)",
-                  }}
-                  title="Pre-supply input() values, one per line"
-                >
-                  Inputs{stdinText ? ` · ${stdinText.split(/\r?\n/).filter(l => l.length > 0).length}` : ""}
+                  {isHomework ? t("app.assignment.submitHomework") : t("app.assignment.submit")}
                 </button>
                 {userRole === "student" && (
                   <button
@@ -2460,38 +2524,10 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     }}
                   >
                     <Hand className="h-3 w-3" />
-                    {handRaised ? "Hand raised" : "Ask for help"}
+                    {handRaised ? t("app.assignment.handRaised") : t("app.assignment.askForHelp")}
                   </button>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* stdin panel — pre-supplied input() values */}
-          {editorMode === "code" && stdinOpen && (
-            <div className="border-t px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--bg-2)" }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Inputs · one value per line · consumed by input() in order
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setStdinOpen(false)}
-                  className="text-[10px]"
-                  style={{ color: "var(--subtle)" }}
-                >
-                  hide
-                </button>
-              </div>
-              <textarea
-                value={stdinText}
-                onChange={e => setStdinText(e.target.value)}
-                placeholder={"hello\n42"}
-                rows={3}
-                spellCheck={false}
-                className="w-full resize-none rounded-[6px] px-2 py-1.5 font-mono text-[12px] outline-none"
-                style={{ background: "#0d1117", color: "#e2e8f0", border: "1px solid var(--border)" }}
-              />
             </div>
           )}
 
@@ -2504,16 +2540,16 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               {hint ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--amber)" }}>💡 Hint</span>
-                    <button type="button" onClick={onDismissHint} className="text-[10px]" style={{ color: "var(--subtle)" }}>dismiss</button>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--amber)" }}>{t("app.assignment.hintLabel")}</span>
+                    <button type="button" onClick={onDismissHint} className="text-[10px]" style={{ color: "var(--subtle)" }}>{t("app.assignment.dismiss")}</button>
                   </div>
                   <p className="text-xs leading-relaxed" style={{ color: "var(--text)" }}>{hint}</p>
-                  <p className="text-[10px]" style={{ color: "var(--amber)" }}>−5 XP used for this hint</p>
+                  <p className="text-[10px]" style={{ color: "var(--amber)" }}>{t("app.assignment.hintCost")}</p>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs" style={{ color: "var(--amber)" }}>
-                    Stuck after {failedAttempts} attempts — need a nudge?
+                    {t("app.assignment.stuckPrompt", { count: failedAttempts })}
                   </span>
                   <button
                     type="button"
@@ -2522,7 +2558,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                     className="shrink-0 px-2.5 py-1 text-xs rounded-[8px] border transition-colors disabled:opacity-60"
                     style={{ border: "1px solid var(--amber)", background: "transparent", color: "var(--amber)" }}
                   >
-                    {hintLoading ? "Thinking…" : "Get a hint (−5 XP)"}
+                    {hintLoading ? t("app.assignment.thinking") : t("app.assignment.getHint")}
                   </button>
                 </div>
               )}
@@ -2545,16 +2581,19 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               style={{ borderBottom: "1px solid #ffffff12" }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#555" }}>Terminal</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#555" }}>{t("app.assignment.terminal")}</span>
                 {isRunning && (
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#4ade80", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
                 )}
+                {awaitingInput && (
+                  <span className="text-[10px]" style={{ color: "#fbbf24" }}>{t("app.assignment.waitingForInput")}</span>
+                )}
                 {pyLoading && (
-                  <span className="text-[10px]" style={{ color: "#fbbf24" }}>downloading Python…</span>
+                  <span className="text-[10px]" style={{ color: "#fbbf24" }}>{t("app.assignment.downloadingPython")}</span>
                 )}
                 {!isRunning && lastRunInfo !== null && (
                   <span className="text-[10px] font-mono" style={{ color: lastRunInfo.exitCode === 0 ? "#4ade80" : "#f87171" }}>
-                    Exit {lastRunInfo.exitCode} · {lastRunInfo.elapsed}s
+                    {t("app.assignment.exitInfo", { code: lastRunInfo.exitCode, elapsed: lastRunInfo.elapsed })}
                   </span>
                 )}
               </div>
@@ -2564,35 +2603,57 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                 className="text-[10px] transition-colors"
                 style={{ color: "#444" }}
               >
-                Clear
+                {t("app.assignment.clear")}
               </button>
             </div>
             <div
               ref={terminalRef}
+              onClick={() => { if (awaitingInput) inputRef.current?.focus(); }}
               className="flex-1 overflow-auto px-3 py-2 font-mono text-[12.5px] leading-relaxed"
               style={{ background: "#0d1117" }}
             >
               {streamLines.length === 0 && !isRunning ? (
-                <span style={{ color: "#444" }}>Run your code to see output here...</span>
+                <span style={{ color: "#444" }}>{t("app.assignment.terminalEmpty")}</span>
               ) : (
-                <>
-                  <pre className="whitespace-pre-wrap break-words m-0" style={{ color: "#e2e8f0" }}>
-                    {streamLines.map(line => (
-                      <span
-                        key={line.id}
-                        style={{
-                          color: line.type === "stderr" ? "#f87171" : line.type === "info" ? "#555" : "#e2e8f0",
-                          fontStyle: line.type === "info" ? "italic" : undefined,
-                        }}
-                      >
-                        {line.text}
-                      </span>
-                    ))}
-                  </pre>
-                  {isRunning && (
+                <pre className="whitespace-pre-wrap break-words m-0" style={{ color: "#e2e8f0" }}>
+                  {streamLines.map(line => (
+                    <span
+                      key={line.id}
+                      style={{
+                        color: line.type === "stderr" ? "#f87171" : line.type === "info" ? "#555" : "#e2e8f0",
+                        fontStyle: line.type === "info" ? "italic" : undefined,
+                      }}
+                    >
+                      {line.text}
+                    </span>
+                  ))}
+                  {awaitingInput && (
+                    <input
+                      ref={inputRef}
+                      value={inputValue}
+                      onChange={e => setInputValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); submitInput(); }
+                      }}
+                      spellCheck={false}
+                      autoComplete="off"
+                      className="m-0 p-0"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        color: "#e2e8f0",
+                        font: "inherit",
+                        caretColor: "#4ade80",
+                        minWidth: "1ch",
+                        width: `${Math.max(1, inputValue.length) + 1}ch`,
+                      }}
+                    />
+                  )}
+                  {isRunning && !awaitingInput && (
                     <span className="inline-block w-[7px] h-[14px] align-middle" style={{ background: "#4ade80", animation: "pulseDot 1s step-end infinite" }} />
                   )}
-                </>
+                </pre>
               )}
             </div>
           </div>
@@ -2619,12 +2680,12 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                   onClick={() => setRightOpen(false)}
                   className="rounded p-0.5 transition-colors"
                   style={{ color: "var(--subtle)" }}
-                  title="Collapse"
+                  title={t("app.assignment.collapse")}
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
                 <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--subtle)" }}>
-                  {showRoster ? "Roster" : "Submissions"}
+                  {showRoster ? t("app.assignment.roster") : t("app.assignment.submissionsPanel")}
                 </span>
                 {showRoster ? (
                   <span className="text-[11px] font-mono" style={{ color: submittedCount === rosterRows.length ? "var(--mint)" : "var(--muted)" }}>
@@ -2657,13 +2718,13 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                           <div className="flex items-center gap-2 min-w-0">
                             <Avatar name={row.name || "Student"} size={22} />
                             <span className="font-medium truncate">
-                              {row.name || "Student"}
+                              {row.name || t("common.student")}
                               {firstSolverId && row.sub?.user_id === firstSolverId && row.sub?.status === "success" && (
-                                <span title="First to solve!" className="ml-1">👑</span>
+                                <span title={t("app.assignment.firstToSolve")} className="ml-1">👑</span>
                               )}
                             </span>
                           </div>
-                          <Badge type={row.submitted ? (row.late ? "timeout" : "success") : "failed"} label={row.submitted ? (row.late ? "Late" : "✓") : "Missing"} />
+                          <Badge type={row.submitted ? (row.late ? "timeout" : "success") : "failed"} label={row.submitted ? (row.late ? t("app.assignment.rosterLate") : t("app.assignment.rosterDone")) : t("app.assignment.rosterMissing")} />
                         </div>
                         {sub && (
                           <div className="mt-1 text-[10px]" style={{ color: "var(--subtle)" }}>
@@ -2677,8 +2738,8 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               ) : submissions.length === 0 ? (
                 <div className="flex-1 overflow-auto">
                   <div className="px-3 py-4 text-center">
-                    <div className="text-[11px]" style={{ color: "var(--subtle)" }}>No submissions yet</div>
-                    <div className="text-[10px] mt-1" style={{ color: "var(--border-2)" }}>Waiting for students to submit</div>
+                    <div className="text-[11px]" style={{ color: "var(--subtle)" }}>{t("app.assignment.noSubmissions")}</div>
+                    <div className="text-[10px] mt-1" style={{ color: "var(--border-2)" }}>{t("app.assignment.waitingForStudents")}</div>
                   </div>
                 </div>
               ) : (
@@ -2697,7 +2758,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar name={s.submitter_name || "?"} size={22} />
                           <span className="font-medium truncate">
-                            {s.submitter_name || "Unknown"}
+                            {s.submitter_name || t("app.assignment.unknown")}
                             {firstSolverId === s.user_id && s.status === "success" && <span className="ml-1">👑</span>}
                           </span>
                         </div>
@@ -2720,13 +2781,13 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
               onClick={() => setRightOpen(true)}
               className="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors"
               style={{ color: "var(--subtle)" }}
-              title="Expand submissions panel"
+              title={t("app.assignment.expandPanel")}
             >
               <span
                 className="text-[10px] font-semibold uppercase tracking-widest"
                 style={{ writingMode: "vertical-rl", color: "var(--subtle)" }}
               >
-                {showRoster ? "Roster" : "Submissions"}
+                {showRoster ? t("app.assignment.roster") : t("app.assignment.submissionsPanel")}
               </span>
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>

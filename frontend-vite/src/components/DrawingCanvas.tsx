@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Pencil, Eraser, Trash2, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 import { useCollabDrawing } from "../hooks/useCollabDrawing";
 import type { DrawingStroke, PeerCursor } from "../hooks/useCollabDrawing";
@@ -6,19 +7,19 @@ import type { DrawingStroke, PeerCursor } from "../hooks/useCollabDrawing";
 type Tool = "pen" | "eraser";
 
 const COLORS = [
-  { value: "#e2e8f0", label: "White" },
-  { value: "#38bdf8", label: "Sky" },
-  { value: "#a78bfa", label: "Violet" },
-  { value: "#34d399", label: "Emerald" },
-  { value: "#fbbf24", label: "Amber" },
-  { value: "#fb7185", label: "Rose" },
-  { value: "#fb923c", label: "Orange" },
+  { value: "#e2e8f0", labelKey: "drawing.colorWhite" },
+  { value: "#38bdf8", labelKey: "drawing.colorSky" },
+  { value: "#a78bfa", labelKey: "drawing.colorViolet" },
+  { value: "#34d399", labelKey: "drawing.colorEmerald" },
+  { value: "#fbbf24", labelKey: "drawing.colorAmber" },
+  { value: "#fb7185", labelKey: "drawing.colorRose" },
+  { value: "#fb923c", labelKey: "drawing.colorOrange" },
 ];
 
 const WIDTHS = [
-  { value: 2, label: "Thin" },
-  { value: 5, label: "Medium" },
-  { value: 12, label: "Thick" },
+  { value: 2, labelKey: "drawing.sizeThin" },
+  { value: 5, labelKey: "drawing.sizeMedium" },
+  { value: 12, labelKey: "drawing.sizeThick" },
 ];
 
 const CANVAS_BG = "#020617"; // slate-950
@@ -97,6 +98,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   className = "",
   isFullscreen = false,
 }) => {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDrawingRef = useRef(false);
@@ -379,7 +381,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         {strokes.length === 0 && peerCursors.every((p) => !p.liveStroke) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-slate-700 text-sm select-none">
-              Start drawing…
+              {t("drawing.startDrawing")}
             </span>
           </div>
         )}
@@ -416,7 +418,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             type="button"
             onClick={() => zoom(1 / 1.25)}
             className="h-6 w-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            title="Zoom out"
+            title={t("drawing.zoomOut")}
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </button>
@@ -424,7 +426,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             type="button"
             onClick={resetView}
             className="px-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-200 min-w-[3.5rem] text-center transition-colors"
-            title="Reset view"
+            title={t("drawing.resetView")}
           >
             {Math.round(displayScale * 100)}%
           </button>
@@ -432,7 +434,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             type="button"
             onClick={() => zoom(1.25)}
             className="h-6 w-6 flex items-center justify-center rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            title="Zoom in"
+            title={t("drawing.zoomIn")}
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </button>
@@ -441,7 +443,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         {/* Pan mode hint */}
         {isPanMode && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-slate-800/90 border border-slate-700 text-[11px] text-slate-400 pointer-events-none select-none backdrop-blur-sm">
-            Hold Space + drag to pan
+            {t("drawing.panHint")}
           </div>
         )}
 
@@ -474,7 +476,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           <button
             type="button"
             onClick={() => setTool("pen")}
-            title="Pen"
+            title={t("drawing.pen")}
             className={`h-7 w-7 flex items-center justify-center rounded border transition-colors ${
               tool === "pen"
                 ? "border-sky-500 bg-slate-900 text-sky-400"
@@ -486,7 +488,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           <button
             type="button"
             onClick={() => setTool("eraser")}
-            title="Eraser"
+            title={t("drawing.eraser")}
             className={`h-7 w-7 flex items-center justify-center rounded border transition-colors ${
               tool === "eraser"
                 ? "border-sky-500 bg-slate-900 text-sky-400"
@@ -506,7 +508,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               key={c.value}
               type="button"
               onClick={() => { setColor(c.value); setTool("pen"); }}
-              title={c.label}
+              title={t(c.labelKey)}
               className={`h-5 w-5 rounded-full border-2 transition-transform hover:scale-110 ${
                 color === c.value && tool === "pen"
                   ? "border-sky-400 scale-110"
@@ -526,7 +528,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               key={w.value}
               type="button"
               onClick={() => setStrokeWidth(w.value)}
-              title={w.label}
+              title={t(w.labelKey)}
               className={`h-7 w-9 flex items-center justify-center rounded border transition-colors ${
                 strokeWidth === w.value
                   ? "border-sky-500 bg-slate-900"
@@ -547,11 +549,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         <button
           type="button"
           onClick={clearStrokes}
-          title="Clear canvas"
+          title={t("drawing.clearCanvas")}
           className="h-7 px-2 flex items-center gap-1 rounded border border-slate-700 bg-slate-950 text-slate-400 hover:bg-slate-900 hover:text-red-400 hover:border-red-500/50 transition-colors text-xs"
         >
           <Trash2 className="h-3 w-3" />
-          <span>Clear</span>
+          <span>{t("drawing.clear")}</span>
         </button>
 
         {/* Open fullscreen */}
@@ -561,11 +563,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             <button
               type="button"
               onClick={handleOpenFullscreen}
-              title="Open in new tab"
+              title={t("drawing.openInNewTab")}
               className="h-7 px-2 flex items-center gap-1 rounded border border-slate-700 bg-slate-950 text-slate-400 hover:bg-slate-900 hover:text-sky-400 hover:border-sky-500/50 transition-colors text-xs ml-auto"
             >
               <Maximize2 className="h-3 w-3" />
-              <span>Fullscreen</span>
+              <span>{t("drawing.fullscreen")}</span>
             </button>
           </>
         )}

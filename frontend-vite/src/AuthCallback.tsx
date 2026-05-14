@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getMe } from "./lib/api";
 
-const ERROR_LABELS: Record<string, string> = {
-  state_mismatch: "Login was cancelled or expired. Please try again.",
-  token_exchange_failed: "Google didn't return a usable token. Please try again.",
-  email_not_verified: "Your Google email isn't verified. Verify it with Google, then try again.",
-  account_conflict: "An account with this email already exists. Please contact support.",
-  auth_failed: "Authentication failed. Please try again.",
-};
+// Error codes the backend can redirect with. Each maps to a translation key
+// under auth.callback.* — see i18n/locales.
+const ERROR_CODES = [
+  "state_mismatch",
+  "token_exchange_failed",
+  "email_not_verified",
+  "account_conflict",
+  "auth_failed",
+] as const;
 
 export const AuthCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   useEffect(() => {
     // The backend set an httpOnly auth cookie before redirecting here.
@@ -21,7 +25,7 @@ export const AuthCallback: React.FC = () => {
     // role-pick screen before the main app.
     const err = searchParams.get("error");
     if (err) {
-      setError(ERROR_LABELS[err] ?? ERROR_LABELS.auth_failed);
+      setErrorCode(ERROR_CODES.includes(err as typeof ERROR_CODES[number]) ? err : "auth_failed");
       return;
     }
     getMe()
@@ -32,18 +36,18 @@ export const AuthCallback: React.FC = () => {
           navigate("/welcome/role", { replace: true });
         }
       })
-      .catch(() => setError(ERROR_LABELS.auth_failed));
+      .catch(() => setErrorCode("auth_failed"));
   }, [navigate, searchParams]);
 
-  if (error) {
+  if (errorCode) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-300 flex flex-col items-center justify-center gap-4">
-        <div className="text-red-400 text-sm">{error}</div>
+        <div className="text-red-400 text-sm">{t(`auth.callback.${errorCode}`)}</div>
         <button
           onClick={() => navigate("/", { replace: true })}
           className="px-4 py-2 rounded-md bg-slate-800 hover:bg-slate-700 text-sm transition-colors"
         >
-          Back to home
+          {t("auth.callback.backHome")}
         </button>
       </div>
     );
@@ -53,7 +57,7 @@ export const AuthCallback: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
       <div className="flex items-center gap-3 text-sm">
         <span className="h-4 w-4 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
-        Signing you in…
+        {t("auth.callback.signingIn")}
       </div>
     </div>
   );
