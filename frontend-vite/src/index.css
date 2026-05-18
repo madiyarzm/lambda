@@ -148,12 +148,14 @@ code, pre, .font-mono {
 }
 
 /* ── Yjs collaborative cursor styles ──────────────────────────────────── */
+/* Selection highlight on remote selections — bright enough to spot at a glance,
+   but still translucent so it doesn't drown out syntax colors underneath. */
 .cm-ySelection {
-  opacity: 0.35;
+  opacity: 0.65;
 }
 
 .cm-yLineSelection {
-  opacity: 0.2;
+  opacity: 0.35;
 }
 
 .cm-ySelectionCaret {
@@ -169,21 +171,27 @@ code, pre, .font-mono {
   display: none !important;
 }
 
+/* Always-visible peer name label, like Google Docs / Figma — sits just above
+   the remote cursor and tracks it. Fades on hover so it doesn't block reading. */
 .cm-ySelectionInfo {
-  top: -0.15em !important;
-  left: 5px !important;
-  font-size: 8px !important;
+  position: absolute !important;
+  top: -1.15em !important;
+  left: -1px !important;
+  font-size: 9px !important;
   font-family: "DM Mono", ui-monospace, monospace !important;
   font-weight: 600 !important;
-  padding: 1px 4px !important;
-  border-radius: 4px !important;
-  line-height: 1.15 !important;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+  line-height: 1.2 !important;
   color: #020617 !important;
-  opacity: 0 !important;
+  opacity: 0.9 !important;
   background-color: inherit !important;
-  transition: opacity 120ms ease-in-out !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  transition: opacity 200ms ease-in-out !important;
+  z-index: 10 !important;
 }
 
 .cm-ySelectionCaret:hover .cm-ySelectionInfo {
-  opacity: 0.78 !important;
+  opacity: 0.35 !important;
 }
