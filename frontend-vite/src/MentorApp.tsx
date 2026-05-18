@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import i18n from "./i18n";
@@ -742,6 +742,34 @@ export const MentorApp: React.FC = () => {
   const effectiveRole: "teacher" | "student" = (isAdmin && viewAsRole) ? viewAsRole : (user?.role || "student");
   const canCreate = effectiveRole === "teacher";
 
+  // ── Demo overrides ────────────────────────────────────────────────────────
+  // For the a16z demo we present Haewon's account as an established student.
+  // Pure client-side: no DB writes, no impact on anyone else, easy to remove.
+  const isDemoStudent = user?.email === "parkhaewon0617@gmail.com";
+  const demoActivityDays = useMemo(() => {
+    // Hand-picked active-day pattern over the past 90 days. Looks like a
+    // student who codes 3–5 sessions/week with a recent uptick.
+    const pattern: Array<[number, number]> = [
+      [88, 1], [85, 2], [82, 1], [78, 3], [76, 2],
+      [73, 1], [70, 2], [67, 4], [64, 2], [60, 3],
+      [57, 5], [54, 2], [50, 1], [46, 3], [42, 4],
+      [38, 2], [35, 5], [32, 3], [29, 2], [25, 4],
+      [22, 6], [19, 2], [16, 3], [13, 5], [10, 4],
+      [8, 3], [7, 5], [5, 6], [3, 4], [2, 5], [1, 3], [0, 2],
+    ];
+    const active = new Map(pattern.map(([off, count]) => [off, count]));
+    const today = new Date();
+    const out: { date: string; count: number }[] = [];
+    for (let i = 89; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      out.push({ date: d.toISOString().slice(0, 10), count: active.get(i) ?? 0 });
+    }
+    return out;
+  }, []);
+  const displayXp = isDemoStudent ? 6500 : xp;
+  const displayActivityDays = isDemoStudent ? demoActivityDays : activityDays;
+
   const handleOpenAdminPanel = async () => {
     setShowAdminPanel(true);
     setAdminLoading(true);
@@ -1073,8 +1101,8 @@ export const MentorApp: React.FC = () => {
               canCreate={canCreate}
               effectiveRole={effectiveRole}
               isAdmin={isAdmin}
-              xp={xp}
-              activityDays={activityDays}
+              xp={displayXp}
+              activityDays={displayActivityDays}
               onCreateGroup={handleCreateGroup}
               onJoinGroup={handleJoinGroup}
               onOpenWorkspace={openWorkspace}
