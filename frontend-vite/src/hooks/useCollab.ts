@@ -52,8 +52,39 @@ export function useCollab(
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const awarenessRef = useRef<Awareness | null>(null);
 
+  // Volatile inputs held in refs so the connection effect doesn't rebind on
+  // every keystroke. `initialValue` changes whenever the parent's `code` state
+  // changes (i.e. every keypress); if we kept it in the deps array, the entire
+  // WebSocket + Awareness instance would tear down and rebuild constantly —
+  // which is why peer cursors and selections never appeared.
+  const initialValueRef = useRef(initialValue);
+  const userNameRef = useRef(userName);
+  const userRoleRef = useRef(userRole);
+  useEffect(() => { initialValueRef.current = initialValue; }, [initialValue]);
+  useEffect(() => { userNameRef.current = userName; }, [userName]);
+  useEffect(() => { userRoleRef.current = userRole; }, [userRole]);
+
+  // When name or role changes after connection, push the new identity into the
+  // existing awareness state instead of reconnecting.
+  useEffect(() => {
+    const aw = awarenessRef.current;
+    if (!aw) return;
+    const role = userRole || "student";
+    const isTeacher = role === "teacher";
+    const myColor = isTeacher ? TEACHER_COLOR : pickStudentColor(doc.clientID);
+    aw.setLocalStateField("user", {
+      name: userName || "Anonymous",
+      color: myColor,
+      colorLight: myColor + "33",
+      role,
+    });
+  }, [userName, userRole, doc]);
+
   useEffect(() => {
     const ytext = doc.getText("code");
+    const initialValue = initialValueRef.current;
+    const userName = userNameRef.current;
+    const userRole = userRoleRef.current;
 
     if (!roomId) {
       if (ytext.length === 0 && initialValue) {
@@ -152,11 +183,12 @@ export function useCollab(
       // clients joining an empty room simultaneously don't both insert and
       // produce duplicated content.
       setTimeout(() => {
-        if (ytext.length === 0 && initialValue) {
+        const seed = initialValueRef.current;
+        if (ytext.length === 0 && seed) {
           const peerIds = Array.from(aw.getStates().keys());
           const minId = peerIds.length > 0 ? Math.min(...peerIds) : doc.clientID;
           if (minId === doc.clientID) {
-            ytext.insert(0, initialValue);
+            ytext.insert(0, seed);
           }
         }
       }, 600);
@@ -215,7 +247,10 @@ export function useCollab(
         socket.close();
       }
     };
-  }, [roomId, doc, initialValue, userName, userRole]);
+    // Intentionally do NOT depend on initialValue / userName / userRole here.
+    // They're read via refs so this effect only rebinds when the room itself
+    // changes — keeping the WebSocket and Awareness alive across keystrokes.
+  }, [roomId, doc]);
 
   const setHandRaised = (raised: boolean) => {
     const aw = awarenessRef.current;
