@@ -1603,17 +1603,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
             {/* Achievements */}
             <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t("app.dashboard.student.achievements")}</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }}>
-              {ACHIEVEMENTS.map(a => (
-                <div key={a.id} style={{ background: "var(--bg)", border: `1px solid ${a.unlocked ? RARITY_COLOR[a.rarity] + "40" : "var(--border)"}`, borderRadius: "var(--r)", padding: "14px 10px", textAlign: "center", opacity: a.unlocked ? 1 : 0.45 }}>
+              {ACHIEVEMENTS.map(a => {
+                // Admin sees every achievement as unlocked so they can preview
+                // the styled "earned" state for screenshots / the demo.
+                const unlocked = isAdmin || a.unlocked;
+                return (
+                <div key={a.id} style={{ background: "var(--bg)", border: `1px solid ${unlocked ? RARITY_COLOR[a.rarity] + "40" : "var(--border)"}`, borderRadius: "var(--r)", padding: "14px 10px", textAlign: "center", opacity: unlocked ? 1 : 0.45 }}>
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 7 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: a.unlocked ? RARITY_COLOR[a.rarity] + "18" : "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <a.Icon size={18} color={a.unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)"} />
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: unlocked ? RARITY_COLOR[a.rarity] + "18" : "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <a.Icon size={18} color={unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)"} />
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: a.unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)", marginBottom: 2 }}>{t(`app.xp.achievements.${a.id}.name`)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: unlocked ? RARITY_COLOR[a.rarity] : "var(--text-3)", marginBottom: 2 }}>{t(`app.xp.achievements.${a.id}.name`)}</div>
                   <div style={{ fontSize: 10, color: "var(--text-3)", lineHeight: 1.4 }}>{t(`app.xp.achievements.${a.id}.desc`)}</div>
                 </div>
-              ))}
+              );})}
             </div>
 
             {/* Activity graph */}
