@@ -635,18 +635,18 @@ export const MentorApp: React.FC = () => {
     setSubmissions(subs);
 
     // Restore code preference: localStorage draft > most-recent own submission > template.
+    // No role gate: the localStorage key is per-user-per-assignment, so saving
+    // teacher/admin drafts is safe and they want their work persisted too.
     let restored = template;
-    if (effectiveRole === "student") {
-      try {
-        const draft = localStorage.getItem(draftKey(asg.id));
-        if (draft !== null && draft !== "") {
-          restored = draft;
-        } else {
-          const mine = subs.find((s: any) => s.user_id === user?.id);
-          if (mine?.code) restored = mine.code;
-        }
-      } catch { /* localStorage disabled */ }
-    }
+    try {
+      const draft = localStorage.getItem(draftKey(asg.id));
+      if (draft !== null && draft !== "") {
+        restored = draft;
+      } else {
+        const mine = subs.find((s: any) => s.user_id === user?.id);
+        if (mine?.code) restored = mine.code;
+      }
+    } catch { /* localStorage disabled (e.g. incognito) */ }
 
     const initialFile: EditorFile = { id: asg.id || "main", name: defaultName, content: restored };
     setFiles([initialFile]);
@@ -700,8 +700,10 @@ export const MentorApp: React.FC = () => {
     setCode(value);
     if (!activeFileId) return;
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
-    // Persist student drafts locally so navigating away and back keeps the code.
-    if (effectiveRole === "student" && currentAssignment?.id) {
+    // Persist drafts locally on every keystroke so navigating away and back
+    // (or hard refresh) keeps the code. Key is per-user-per-assignment, so
+    // it's safe for any role — teachers and admins benefit too.
+    if (currentAssignment?.id && user?.id) {
       try { localStorage.setItem(draftKey(currentAssignment.id), value); } catch { /* quota / disabled */ }
     }
   };
