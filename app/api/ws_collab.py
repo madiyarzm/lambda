@@ -11,6 +11,7 @@ belong to that classroom (teacher, group member, or admin). See `ws_acl.py`.
 """
 
 import logging
+import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import JWTError
@@ -18,7 +19,7 @@ from jose import JWTError
 from app.config import get_settings
 from app.core.collab_manager import manager
 from app.core.security import decode_access_token
-from app.core.ws_acl import user_can_join_room
+from app.core.ws_acl import _parse_room_id, user_can_join_room
 from app.db.session import SessionLocal
 from app.dependencies import AUTH_COOKIE_NAME
 
@@ -68,7 +69,14 @@ async def collab_websocket(
         await websocket.close(code=4403, reason="Not authorised for this room")
         return
 
-    await manager.connect(room_id, websocket)
+    room_key = _parse_room_id(room_id)
+    try:
+        uid_uuid = uuid.UUID(user_id)
+    except (ValueError, TypeError):
+        uid_uuid = None
+    classroom_id = room_key.classroom_id if room_key else None
+
+    await manager.connect(room_id, websocket, classroom_id=classroom_id, user_id=uid_uuid)
     try:
         while True:
             data = await websocket.receive_bytes()

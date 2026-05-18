@@ -180,6 +180,14 @@ export async function deleteClassroom(classroomId: string): Promise<void> {
   await apiClient.delete(`/api/v1/classrooms/${classroomId}`);
 }
 
+export async function getClassroomActiveCounts(): Promise<Record<string, number>> {
+  return apiClient.get("/api/v1/classrooms/active-counts");
+}
+
+export async function leaveGroup(groupId: string): Promise<void> {
+  await apiClient.post(`/api/v1/groups/${groupId}/leave`, {});
+}
+
 // --- Assignments ---
 
 export async function listAssignments(classroomId: string): Promise<any[]> {

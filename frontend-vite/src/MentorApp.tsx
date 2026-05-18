@@ -16,10 +16,12 @@ import {
   getHint,
   getMe,
   getMyActivity,
+  getClassroomActiveCounts,
   getMyCosmetics,
   getMyStats,
   getSandboxWsUrl,
   joinGroup,
+  leaveGroup,
   listAllUsers,
   listAssignments,
   listClassrooms,
@@ -393,6 +395,7 @@ export const MentorApp: React.FC = () => {
   const [activityDays, setActivityDays] = useState<{ date: string; count: number }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [cosmetics, setCosmeticsState] = useState<{ frame?: string; background?: string; aura?: string }>({});
+  const [classroomActiveCounts, setClassroomActiveCounts] = useState<Record<string, number>>({});
 
   const refreshStats = async () => {
     try {
@@ -476,6 +479,20 @@ export const MentorApp: React.FC = () => {
     return () => clearInterval(id);
   }, [currentAssignment?.id]);
 
+  useEffect(() => {
+    if (!authChecked) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const counts = await getClassroomActiveCounts();
+        if (!cancelled) setClassroomActiveCounts(counts || {});
+      } catch { /* ignore */ }
+    };
+    void tick();
+    const id = setInterval(tick, 10_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [authChecked]);
+
   const handleLogout = async () => {
     await logout();
     navigate("/", { replace: true });
@@ -538,6 +555,17 @@ export const MentorApp: React.FC = () => {
     } catch (e: any) { setError(e.message || t("app.errors.deleteGroup")); }
   };
 
+  const handleLeaveGroup = async (groupId: string, groupName: string) => {
+    if (!window.confirm(t("app.confirm.leaveGroup", { name: groupName, defaultValue: `Leave "${groupName}"? You'll lose access to its classrooms.` }))) return;
+    setError(null);
+    try {
+      await leaveGroup(groupId);
+      setGroups(prev => prev.filter(g => g.id !== groupId));
+      setGroupClassrooms(prev => { const next = { ...prev }; delete next[groupId]; return next; });
+      if (currentClassroom?.group_id === groupId) { setCurrentClassroom(null); setView("dashboard"); }
+    } catch (e: any) { setError(e.message || t("app.errors.leaveGroup", { defaultValue: "Could not leave group" })); }
+  };
+
   const handleDeleteClassroom = async (classroomId: string, classroomName: string, groupId: string) => {
     if (!window.confirm(t("app.confirm.deleteClassroom", { name: classroomName }))) return;
     setError(null);
@@ -562,6 +590,14 @@ export const MentorApp: React.FC = () => {
       } else {
         setSubmissionsByAssignment({});
       }
+      if (cls.group_id) {
+        try {
+          const members = await listGroupMembers(cls.group_id);
+          setGroupMembers((members || []).filter((m: any) => m.role === "student"));
+        } catch { setGroupMembers([]); }
+      } else {
+        setGroupMembers([]);
+      }
       setView("classroom");
     } catch (e: any) { setError(e.message || t("app.errors.loadAssignments")); }
   };
@@ -579,29 +615,51 @@ export const MentorApp: React.FC = () => {
     } catch (e: any) { setError(e.message || t("app.errors.createAssignment")); }
   };
 
+  const draftKey = (assignmentId: string) => `chalk:draft:${user?.id || "anon"}:${assignmentId}`;
+
   const openAssignment = async (asg: any) => {
     setCurrentAssignment(asg);
     setSelectedSubmission(null);
-    const initialCode = asg.template_code || "# Write your code here\n\n";
     const defaultName = (asg.title || "main").replace(/\s+/g, "_").toLowerCase() + ".py";
-    const initialFile: EditorFile = { id: asg.id || "main", name: defaultName, content: initialCode };
-    setFiles([initialFile]);
-    setActiveFileId(initialFile.id);
-    setCode(initialCode);
+    const template = asg.template_code || "# Write your code here\n\n";
     setError(null);
     setFailedAttempts(0);
     setHint(null);
+
+    let subs: any[] = [];
     try {
-      const subs = await listSubmissions(asg.id);
-      setSubmissions(subs || []);
-      if (effectiveRole === "teacher" && asg.due_at && currentClassroom?.group_id) {
-        try {
-          const members = await listGroupMembers(currentClassroom.group_id);
-          setGroupMembers((members || []).filter((m: any) => m.role === "student"));
-        } catch { setGroupMembers([]); }
-      } else { setGroupMembers([]); }
-      setView("assignment");
-    } catch (e: any) { setError(e.message || t("app.errors.loadSubmissions")); }
+      subs = await listSubmissions(asg.id) || [];
+    } catch (e: any) {
+      setError(e.message || t("app.errors.loadSubmissions"));
+    }
+    setSubmissions(subs);
+
+    // Restore code preference: localStorage draft > most-recent own submission > template.
+    let restored = template;
+    if (effectiveRole === "student") {
+      try {
+        const draft = localStorage.getItem(draftKey(asg.id));
+        if (draft !== null && draft !== "") {
+          restored = draft;
+        } else {
+          const mine = subs.find((s: any) => s.user_id === user?.id);
+          if (mine?.code) restored = mine.code;
+        }
+      } catch { /* localStorage disabled */ }
+    }
+
+    const initialFile: EditorFile = { id: asg.id || "main", name: defaultName, content: restored };
+    setFiles([initialFile]);
+    setActiveFileId(initialFile.id);
+    setCode(restored);
+
+    if (effectiveRole === "teacher" && asg.due_at && currentClassroom?.group_id) {
+      try {
+        const members = await listGroupMembers(currentClassroom.group_id);
+        setGroupMembers((members || []).filter((m: any) => m.role === "student"));
+      } catch { setGroupMembers([]); }
+    } else { setGroupMembers([]); }
+    setView("assignment");
   };
 
   // Open the student's personal workspace — an ephemeral, solo scratchpad.
@@ -642,6 +700,10 @@ export const MentorApp: React.FC = () => {
     setCode(value);
     if (!activeFileId) return;
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
+    // Persist student drafts locally so navigating away and back keeps the code.
+    if (effectiveRole === "student" && currentAssignment?.id) {
+      try { localStorage.setItem(draftKey(currentAssignment.id), value); } catch { /* quota / disabled */ }
+    }
   };
 
   const handleSubmit = async (stdinLines: string[] = []) => {
@@ -844,6 +906,7 @@ export const MentorApp: React.FC = () => {
               {groups.map(g => {
                 const isExpanded = expandedGroupId === g.id;
                 const classrooms = groupClassrooms[g.id] || [];
+                const isOwner = g.teacher_id === user?.id;
                 return (
                   <div key={g.id}>
                     <div style={{ display: "flex", alignItems: "center" }}>
@@ -856,7 +919,7 @@ export const MentorApp: React.FC = () => {
                         </svg>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
                       </button>
-                      {canCreate && (
+                      {isOwner ? (
                         <button
                           onClick={e => { e.stopPropagation(); handleDeleteGroup(g.id, g.name); }}
                           title={t("app.sidebar.deleteGroup")}
@@ -865,6 +928,16 @@ export const MentorApp: React.FC = () => {
                           onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
                         >
                           <Trash2 size={11} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleLeaveGroup(g.id, g.name); }}
+                          title={t("app.sidebar.leaveGroup", { defaultValue: "Leave group" })}
+                          style={{ flexShrink: 0, padding: "4px 8px 4px 4px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", opacity: 0.5, lineHeight: 1 }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
+                        >
+                          <LogOut size={11} />
                         </button>
                       )}
                     </div>
@@ -1003,6 +1076,7 @@ export const MentorApp: React.FC = () => {
               onJoinGroup={handleJoinGroup}
               onOpenWorkspace={openWorkspace}
               groupClassrooms={groupClassrooms}
+              activeCounts={classroomActiveCounts}
               onOpenClassroom={openClassroom}
               cosmetics={cosmetics}
               onSaveCosmetics={saveCosmetics}
@@ -1017,6 +1091,7 @@ export const MentorApp: React.FC = () => {
               userId={user?.id || ""}
               submissionsByAssignment={submissionsByAssignment}
               groupMembers={groupMembers}
+              activeCount={classroomActiveCounts[currentClassroom.id] || 0}
               onCreateAssignment={handleCreateAssignment}
               onOpenAssignment={openAssignment}
               onBack={() => setView("dashboard")}
@@ -1044,8 +1119,8 @@ export const MentorApp: React.FC = () => {
               setCode={handleCodeChange}
               roomId={roomIdForEditor}
               drawingRoomId={drawingRoomId}
-              userName={user?.name || "Anonymous"}
-              userRole={effectiveRole}
+              userName={`${(isAdmin || effectiveRole === "teacher") ? "Teacher" : "Student"} ${(user?.name || "Anonymous").split(" ")[0]}`}
+              userRole={(isAdmin || effectiveRole === "teacher") ? "teacher" : "student"}
               userId={user?.id || ""}
               groupMembers={groupMembers}
               files={files}
@@ -1195,6 +1270,7 @@ interface DashboardViewProps {
   user: any;
   groups: any[];
   groupClassrooms: Record<string, any[]>;
+  activeCounts: Record<string, number>;
   canCreate: boolean;
   effectiveRole: string;
   xp: number | null;
@@ -1207,12 +1283,13 @@ interface DashboardViewProps {
   onSaveCosmetics: (next: { frame?: string; background?: string; aura?: string }) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, onOpenWorkspace, cosmetics, onSaveCosmetics }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, activeCounts, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, onOpenWorkspace, cosmetics, onSaveCosmetics }) => {
   const { t } = useTranslation();
   // derive flat classroom list for teacher
-  const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code })));
+  const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code, active: activeCounts[c.id] || 0, studentCount: g.member_count || 0 })));
   // student: assignments across all classrooms
-  const totalStudents = groups.reduce((sum, g) => sum + Math.max(0, (g.member_count || 1) - 1), 0);
+  // member_count from backend already excludes the group owner (teacher).
+  const totalStudents = groups.reduce((sum, g) => sum + (g.member_count || 0), 0);
 
   if (effectiveRole === "teacher") {
     const teacherStats = [
@@ -1284,8 +1361,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
               {allClassrooms.map((c: any) => {
-                const submitted = 4; const total = Math.max(1, (c.member_count || 1) - 1);
-                const pct = Math.round((submitted / total) * 100);
+                const total = c.studentCount || 0;
+                const pct = 0;
                 return (
                   <button
                     key={c.id}
@@ -1591,6 +1668,7 @@ interface ClassroomViewProps {
   userId: string;
   submissionsByAssignment: Record<string, any[]>;
   groupMembers: any[];
+  activeCount: number;
   onCreateAssignment: () => void;
   onOpenAssignment: (asg: any) => void;
   onBack: () => void;
@@ -1599,8 +1677,11 @@ interface ClassroomViewProps {
 
 const ClassroomView: React.FC<ClassroomViewProps> = ({
   classroom, assignments, canCreate, userRole, userId,
-  submissionsByAssignment, groupMembers, onCreateAssignment, onOpenAssignment, onBack, onDelete,
+  submissionsByAssignment, groupMembers, activeCount, onCreateAssignment, onOpenAssignment, onBack, onDelete,
 }) => {
+  // Set of active user_ids isn't exposed; we just know the count.
+  // For the per-student "live" pill we treat counts > 0 as "someone is live" but
+  // can't attribute it to specific students without an active-users endpoint.
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"assignments" | "students">("assignments");
 
@@ -1623,10 +1704,10 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
               <code style={{ fontFamily: "DM Mono, monospace", background: "var(--bg-2)", border: "1px solid var(--border)", padding: "3px 10px", borderRadius: 6, fontSize: 11, color: "var(--text-2)" }}>
                 {t("app.classroom.invite", { code: classroom.invite_code || classroom.code || "—" })}
               </code>
-              {(classroom.active || 0) > 0 && (
+              {activeCount > 0 && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: "var(--mint)", background: "var(--mint-10)", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--mint)", display: "inline-block", animation: "pulseDot 1.4s ease-in-out infinite" }} />
-                  {t("app.classroom.liveNow", { count: classroom.active })}
+                  {t("app.classroom.liveNow", { count: activeCount })}
                 </span>
               )}
             </div>
@@ -1678,7 +1759,7 @@ const ClassroomView: React.FC<ClassroomViewProps> = ({
               const submittedCount = subs.length;
               const mySub = userRole === "student" ? (subs.find((s: any) => s.user_id === userId) || null) : null;
               const late = mySub ? isSubmittedLate(mySub.submitted_at, a.due_at) : false;
-              const totalMembers = classroom.member_count ? Math.max(1, classroom.member_count - 1) : null;
+              const totalMembers = groupMembers.length > 0 ? groupMembers.length : null;
               const pct = totalMembers && submittedCount > 0 ? Math.round((submittedCount / totalMembers) * 100) : 0;
 
               return (

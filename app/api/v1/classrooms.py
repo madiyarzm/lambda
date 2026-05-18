@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from app.core.collab_manager import manager as collab_manager
 from app.core.limiter import limiter, user_or_ip
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.classroom import ClassroomCreate, ClassroomRead
@@ -75,6 +76,13 @@ def create_classroom_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
     return ClassroomRead.model_validate(classroom)
+
+
+@router.get("/active-counts", response_model=dict[str, int])
+def classroom_active_counts(current_user: CurrentUser, db: DBSession) -> dict[str, int]:
+    """Return {classroom_id: active_user_count} for classrooms the user can see."""
+    classrooms = list_classrooms_for_user(db, current_user)
+    return {str(c.id): collab_manager.active_user_count(c.id) for c in classrooms}
 
 
 @router.delete("/{classroom_id}", status_code=status.HTTP_204_NO_CONTENT)

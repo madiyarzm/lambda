@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.limiter import limiter, user_or_ip
 from app.dependencies import CurrentUser, DBSession
+from app.models.group_membership import GroupMembership
 from app.schemas.group import GroupCreate, GroupMemberRead, GroupRead, JoinGroupRequest
 from app.services.group_service import (
     create_group,
@@ -81,6 +82,26 @@ def join_group(
     return _group_to_read(group, get_member_count(db, group.id))
 
 
+@router.post("/{group_id}/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_group(group_id: UUID, current_user: CurrentUser, db: DBSession) -> None:
+    """Leave a group. Owners cannot leave their own group (must delete instead)."""
+    try:
+        group = get_group_or_404(db, group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    if group.teacher_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Group owners cannot leave their own group",
+        )
+
+    try:
+        remove_member(db, group, current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group_endpoint(group_id: UUID, current_user: CurrentUser, db: DBSession) -> None:
     """Delete a group. Only the group owner can do this."""
@@ -97,14 +118,22 @@ def delete_group_endpoint(group_id: UUID, current_user: CurrentUser, db: DBSessi
 
 @router.get("/{group_id}/members", response_model=list[GroupMemberRead])
 def list_members(group_id: UUID, current_user: CurrentUser, db: DBSession) -> list[GroupMemberRead]:
-    """List members of a group. Only the group owner can view members."""
+    """List members of a group. Owner, admin, or any member can view."""
     try:
         group = get_group_or_404(db, group_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
-    if group.teacher_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the group owner can view members")
+    is_owner = group.teacher_id == current_user.id
+    is_admin = getattr(current_user, "role", None) == "admin"
+    is_member = (
+        db.query(GroupMembership)
+        .filter(GroupMembership.group_id == group.id, GroupMembership.user_id == current_user.id)
+        .first()
+        is not None
+    )
+    if not (is_owner or is_admin or is_member):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
 
     members = list_group_members(db, group)
     return [GroupMemberRead(**m) for m in members]

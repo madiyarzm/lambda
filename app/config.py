@@ -71,10 +71,11 @@ class Settings(BaseSettings):
     )
 
     # Submissions: keep only for this many days; older ones are hidden and deleted on cleanup.
+    # A classroom needs long-lived history (gradebooks, late review), so default to ~1 year.
     submission_retention_days: int = Field(
-        default=1,
+        default=365,
         ge=1,
-        le=365,
+        le=3650,
         description="Submissions older than this are excluded from lists and removed by cleanup.",
     )
 
