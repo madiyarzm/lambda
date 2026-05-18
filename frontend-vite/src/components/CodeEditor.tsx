@@ -22,6 +22,7 @@ import {
 } from "@codemirror/autocomplete";
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
+import { LifeBuoy } from "lucide-react";
 import { useCollab } from "../hooks/useCollab";
 import type { PeerInfo } from "../hooks/useCollab";
 
@@ -176,10 +177,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   }, [onChange]);
 
   useEffect(() => {
+    // Do NOT call updateHandler() immediately. On fresh mount, ytext is empty
+    // and the parent already holds the restored value (template / draft / last
+    // submission). Firing onChange("") here would clobber that and persist an
+    // empty string to localStorage, destroying the saved draft.
     const updateHandler = () => {
       onChangeRef.current(ytext.toString());
     };
-    updateHandler();
     ytext.observe(updateHandler);
     return () => {
       ytext.unobserve(updateHandler);
@@ -216,7 +220,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               style={{ backgroundColor: p.color }}
             />
             {p.name}
-            {p.handRaised && <span title={t("editor.handRaised")}>✋</span>}
+            {p.handRaised && (
+              <LifeBuoy
+                className="h-3 w-3"
+                style={{ color: "var(--amber, #f59e0b)" }}
+                aria-label={t("editor.handRaised")}
+              />
+            )}
           </span>
         ))}
       </div>

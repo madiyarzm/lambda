@@ -32,7 +32,7 @@ import {
   updateMyCosmetics,
   updateUserRole,
 } from "./lib/api";
-import { Play, Square, X, Users, Shield, Hand, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Square, X, Users, Shield, LifeBuoy, Home, LogOut, Trophy, Flame, Gem, Zap, PenLine, Crown, Star, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Confetti } from "./components/Confetti";
 import {
   onPyodideProgress,
@@ -1070,6 +1070,7 @@ export const MentorApp: React.FC = () => {
               groups={groups}
               canCreate={canCreate}
               effectiveRole={effectiveRole}
+              isAdmin={isAdmin}
               xp={xp}
               activityDays={activityDays}
               onCreateGroup={handleCreateGroup}
@@ -1273,6 +1274,7 @@ interface DashboardViewProps {
   activeCounts: Record<string, number>;
   canCreate: boolean;
   effectiveRole: string;
+  isAdmin: boolean;
   xp: number | null;
   activityDays: { date: string; count: number }[];
   onCreateGroup: () => void;
@@ -1283,7 +1285,7 @@ interface DashboardViewProps {
   onSaveCosmetics: (next: { frame?: string; background?: string; aura?: string }) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, activeCounts, canCreate, effectiveRole, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, onOpenWorkspace, cosmetics, onSaveCosmetics }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, activeCounts, canCreate, effectiveRole, isAdmin, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, onOpenWorkspace, cosmetics, onSaveCosmetics }) => {
   const { t } = useTranslation();
   // derive flat classroom list for teacher
   const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code, active: activeCounts[c.id] || 0, studentCount: g.member_count || 0 })));
@@ -1412,7 +1414,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
   const bg = XP_BGTYPES.find(b => b.id === selectedBg) || XP_BGTYPES[0];
   const aura = XP_AURAS.find(a => a.id === selectedAura) || XP_AURAS[0];
   const ownedXp = xp ?? 0;
-  const canAfford = (cost: number) => ownedXp >= cost;
+  // Admin can preview/equip every cosmetic without paying XP — useful for demos and screenshots.
+  const canAfford = (cost: number) => isAdmin || ownedXp >= cost;
   const lvlInfo = xp !== null ? xpLevel(xp) : null;
   const xpPct = lvlInfo ? (lvlInfo.next === lvlInfo.prev ? 100 : Math.round(((xp! - lvlInfo.prev) / (lvlInfo.next - lvlInfo.prev)) * 100)) : 0;
 
@@ -2670,7 +2673,7 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({
                       animation: handRaised ? "pulseDot 2s ease-in-out infinite" : undefined,
                     }}
                   >
-                    <Hand className="h-3 w-3" />
+                    <LifeBuoy className="h-3 w-3" />
                     {handRaised ? t("app.assignment.handRaised") : t("app.assignment.askForHelp")}
                   </button>
                 )}

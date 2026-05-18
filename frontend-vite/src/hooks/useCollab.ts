@@ -123,8 +123,6 @@ export function useCollab(
     const socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
 
-    let receivedPeerState = false;
-
     function taggedSend(tag: number, payload: Uint8Array) {
       const msg = new Uint8Array(1 + payload.length);
       msg[0] = tag;
@@ -146,9 +144,20 @@ export function useCollab(
         }
       }, 10_000);
 
+      // Seed the room with our initialValue (template_code, draft, etc.) if
+      // ytext is still empty after a short grace period. Drop the old
+      // `receivedPeerState` gate — an empty doc-state message from another
+      // peer would flip it and prevent the template from ever being seeded.
+      // Use deterministic leader election (smallest clientID wins) so two
+      // clients joining an empty room simultaneously don't both insert and
+      // produce duplicated content.
       setTimeout(() => {
-        if (!receivedPeerState && ytext.length === 0 && initialValue) {
-          ytext.insert(0, initialValue);
+        if (ytext.length === 0 && initialValue) {
+          const peerIds = Array.from(aw.getStates().keys());
+          const minId = peerIds.length > 0 ? Math.min(...peerIds) : doc.clientID;
+          if (minId === doc.clientID) {
+            ytext.insert(0, initialValue);
+          }
         }
       }, 600);
     });
@@ -179,7 +188,6 @@ export function useCollab(
       const tag = raw[0];
       const payload = raw.slice(1);
       if (tag === TAG_DOC) {
-        receivedPeerState = true;
         Y.applyUpdate(doc, payload, socket);
       } else if (tag === TAG_AWARENESS) {
         applyAwarenessUpdate(aw, payload, socket);
