@@ -1122,7 +1122,13 @@ export const MentorApp: React.FC = () => {
               setCode={handleCodeChange}
               roomId={roomIdForEditor}
               drawingRoomId={drawingRoomId}
-              userName={`${(isAdmin || effectiveRole === "teacher") ? "Teacher" : "Student"} ${(user?.name || "Anonymous").split(" ")[0]}`}
+              userName={
+                // Manual override: this user opted out of having their name on
+                // their cursor — show just the role label.
+                user?.email === "parkhaewon0617@gmail.com"
+                  ? "Student"
+                  : `${(isAdmin || effectiveRole === "teacher") ? "Teacher" : "Student"} ${(user?.name || "Anonymous").split(" ")[0]}`
+              }
               userRole={(isAdmin || effectiveRole === "teacher") ? "teacher" : "student"}
               userId={user?.id || ""}
               groupMembers={groupMembers}
@@ -1289,6 +1295,12 @@ interface DashboardViewProps {
 
 const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassrooms, activeCounts, canCreate, effectiveRole, isAdmin, xp, activityDays, onCreateGroup, onJoinGroup, onOpenClassroom, onOpenWorkspace, cosmetics, onSaveCosmetics }) => {
   const { t } = useTranslation();
+  // All hooks declared up front. Calling a hook only on one branch (e.g. inside
+  // the student branch below) violates React's Rules of Hooks: the hook count
+  // must be identical on every render. Toggling admin's view-as-role would
+  // cross that boundary and crash the tree → blank screen.
+  const [shopOpen, setShopOpen] = useState(false);
+
   // derive flat classroom list for teacher
   const allClassrooms = groups.flatMap(g => (groupClassrooms[g.id] || []).map((c: any) => ({ ...c, groupName: g.name, invite_code: g.invite_code, active: activeCounts[c.id] || 0, studentCount: g.member_count || 0 })));
   // student: assignments across all classrooms
@@ -1411,7 +1423,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, groups, groupClassr
   const selectedFrame = cosmetics.frame || "plain";
   const selectedBg = cosmetics.background || "default";
   const selectedAura = cosmetics.aura || "none";
-  const [shopOpen, setShopOpen] = useState(false);
   const frame = XP_FRAMES.find(f => f.id === selectedFrame) || XP_FRAMES[0];
   const bg = XP_BGTYPES.find(b => b.id === selectedBg) || XP_BGTYPES[0];
   const aura = XP_AURAS.find(a => a.id === selectedAura) || XP_AURAS[0];
